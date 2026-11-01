@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { changeMount, createWorld, positionForShot, shots, validateWorld } from '../src/world';
 
+function createMountedWorld() {
+  const world = createWorld();
+  world.player.mounted = true;
+  world.player.horse = [world.player.x, world.player.z];
+  return world;
+}
+
 describe('riding transitions', () => {
   it('parks the horse at its last heading and restores it after the rider turns on foot', () => {
-    const world = createWorld();
+    const world = createMountedWorld();
     world.player.angle = -1.2;
     const saddle = [world.player.x, world.player.z];
     expect(changeMount(world)).toBe('dismounted');
@@ -16,7 +23,7 @@ describe('riding transitions', () => {
   });
 
   it('leaves both actors in place when the rider tries to mount from too far away', () => {
-    const world = createWorld();
+    const world = createMountedWorld();
     changeMount(world);
     world.player.x += 8;
     const before = structuredClone(world.player);

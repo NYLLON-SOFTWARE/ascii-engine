@@ -12,5 +12,5 @@ export class WorldMap {
       c.textAlign = 'center';
       c.fillText('♞', (hx+128)*4*scale+ox, (hz+128)*4*scale+oy);
     }
-    const px=(w.player.x+128)*4*scale+ox,py=(w.player.z+128)*4*scale+oy;c.fillStyle='#ddd59d';c.font=`${mini?11:15*dpr}px monospace`;c.textAlign='center';c.fillText('@',px,py);if(!mini){c.fillStyle='#b8b9af';c.font=`${11*dpr}px monospace`;c.fillText('Wanderer',px,py-17*dpr);for(const [label,x,z] of [['OLD WATCH',0,-10],['WILLOW REACH',-25,-50],['GLYPH MEADOWS',20,45]] as const)c.fillText(label,(x+128)*4*scale+ox,(z+128)*4*scale+oy);}}
+    const px=(w.player.x+128)*4*scale+ox,py=(w.player.z+128)*4*scale+oy;c.fillStyle='#ddd59d';c.font=`${mini?11:15*dpr}px monospace`;c.textAlign='center';c.fillText('@',px,py);if(!mini){c.fillStyle='#b8b9af';c.font=`${11*dpr}px monospace`;c.fillText('Novice',px,py-17*dpr);for(const [label,x,z] of [['OLD WATCH',0,-10],['WILLOW REACH',-25,-50],['GLYPH MEADOWS',20,45]] as const)c.fillText(label,(x+128)*4*scale+ox,(z+128)*4*scale+oy);}}
 }

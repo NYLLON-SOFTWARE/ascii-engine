@@ -43,7 +43,7 @@
     },
     {
       "file": "on-foot.jpg",
-      "description": "Dismounted knight beside the parked horse.",
+      "description": "Dismounted novice monk beside the parked horse.",
       "viewport": [
         1600,
         1000
@@ -163,10 +163,11 @@
     }
   ],
   "errors": [],
+  "character": "Procedural novice monk",
   "animations": [
     {
       "file": "running-around.gif",
-      "description": "Dismounting and running around the parked horse using E and Shift + WASD.",
+      "description": "Novice monk dismounting, walking and running using E, WASD and Shift.",
       "captured": "2026-11-01",
       "sourceViewport": [
         1280,
@@ -176,10 +177,10 @@
         960,
         600
       ],
-      "frames": 105,
+      "frames": 102,
       "fps": 12,
-      "durationMs": 8750,
-      "bytes": 5386651,
+      "durationMs": 8500,
+      "bytes": 4396080,
       "settings": {
         "fixedCamera": true,
         "wind": 0,
@@ -201,7 +202,7 @@
       "frames": 138,
       "fps": 12,
       "durationMs": 11500,
-      "bytes": 847296,
+      "bytes": 849629,
       "settings": {
         "fixedCamera": true,
         "wind": 0,

@@ -1,10 +1,10 @@
 # ASCII Engine
 
-A playable world made of letters, light, and moving grass. **ASCII Engine** is a TypeScript and WebGL2 experiment in rendering interactive scenery and animated 3D characters as glyphs. **Glyph Valley** is the included single-player demo, with a moonlit meadow, ruins, a horse, a trickling ASCII stream, and an in-browser world editor.
+A playable world made of letters, light, and moving grass. **ASCII Engine** is a TypeScript and WebGL2 experiment in rendering interactive scenery and animated 3D characters as glyphs. **Glyph Valley** is the included single-player demo, with a novice monk, a moonlit meadow, ruins, a horse, a trickling ASCII stream, and an in-browser world editor.
 
-![Dismounting and running around the parked horse, with animated glyph characters and interactive grass](docs/screenshots/running-around.gif)
+![Novice monk walking and running beside the parked horse, with animated glyph characters and interactive grass](docs/screenshots/running-around.gif)
 
-Dismount, hold **Shift + WASD**, and explore on foot. Your horse waits where you left it.
+Start on foot as a novice in a simple robe. Use **WASD** to walk and hold **Shift** to run. Your horse waits nearby; press **E** within reach to mount.
 
 ![Placing a tree, ruins, rocks and flowers through the live scene editor](docs/screenshots/placing-objects.gif)
 
@@ -20,15 +20,15 @@ The still screenshots are captures of the running application at 1600 × 1000. T
 
 ### The valley
 
-![Glyph Valley — mounted rider among glyph ruins, trees, grass and a flowing stream](docs/screenshots/valley.jpg)
+![Glyph Valley — novice monk among glyph ruins, trees, grass and a flowing stream](docs/screenshots/valley.jpg)
 
 ### Fine glyphs on animated characters
 
-![Mounted knight and horse, with fine actor glyphs and individual grass blades](docs/screenshots/mounted.jpg)
+![Mounted novice monk and horse, with fine actor glyphs and individual grass blades](docs/screenshots/mounted.jpg)
 
 ### Walking and a parked horse
 
-![Dismounted knight beside the horse, with a nearby mount prompt](docs/screenshots/on-foot.jpg)
+![Novice monk beside the horse, with a nearby mount prompt](docs/screenshots/on-foot.jpg)
 
 ### A river of moving punctuation
 
@@ -65,7 +65,7 @@ npm ci
 npm run dev
 ```
 
-Open the local URL printed by Vite, usually **http://127.0.0.1:5173/**. Keep the terminal running while playing. Initial startup converts the bundled scenery and loads the animated FBX models.
+Open the local URL printed by Vite, usually **http://127.0.0.1:5173/**. Keep the terminal running while playing. Initial startup converts the bundled scenery, constructs the novice monk, and loads the animated horse FBX.
 
 ```sh
 npm test         # Run the unit tests
@@ -81,8 +81,9 @@ All runtime artwork and models are bundled. The build currently expects to be se
 
 - A seeded **256 × 256 meter** world with a hand-placed ruin area, scattered trees and rocks, a winding path, flowers, and a river.
 - An orthographic camera pitched approximately **55° downward**, smooth player following, and mouse-wheel zoom.
-- Walking, running, mounted travel, and galloping, with animated idle and locomotion states.
-- Mounting within reach of the horse and collision-checked dismount positions. The horse waits at its last position and heading while the knight walks away.
+- A novice monk with a matte clay-colored robe, crossed linen collar, sash, shaved head, trousers, and sandals. The scene starts on foot with the horse nearby.
+- Walking at **1.75 m/s**, running at **4.3 m/s**, mounted travel, and galloping, with calm idle and distinct locomotion states. Alternating footfalls, opposing arm swings, and split robe panels make each step visible.
+- Mounting within reach of the horse and collision-checked dismount positions. The horse waits at its last position and heading while the novice walks away.
 - Basic circular prop collision, river collision, and world boundaries.
 - A toggleable warm torch, moonlight, wind, haze, and configurable stylized sky reflection.
 - A compact monospace HUD, local activity log, minimap, clickable hotbar, and nearby mount prompt.
@@ -163,7 +164,8 @@ flowchart LR
     Chunks --> Grass[Instanced grass meshes]
     Document --> River[River ribbon and flow shader]
     Asset --> Scenery[Batched glyph scenery]
-    FBX[Animated knight and horse FBX] --> Capture[Actor color and depth targets]
+    Monk[Procedural monk geometry and gait] --> Capture[Actor color and depth targets]
+    FBX[Animated horse FBX] --> Capture
     Capture --> Actors[Glyph shading and depth reconstruction]
     Scenery --> Frame[Three.js / WebGL2 scene]
     Grass --> Frame
@@ -181,7 +183,11 @@ Placed assets expand into a shared instanced glyph mesh. Their cell positions de
 
 ### Actor capture and depth
 
-Three.js `FBXLoader` loads the Quaternius knight and horse. Models are normalized to approximately **1.82 m** and **1.9 m** in height. `AnimationMixer` drives idle, walking, and running. A generated seated clip adapts the knight's rig to riding, and its hips follow the animated horse's saddle position. The helmet is attached to the knight.
+The novice monk is original articulated Three.js geometry built in [src/monk.ts](src/monk.ts). Matte cloth materials, a crossed linen collar, an offset sash, a small robe patch, a shaved head, trousers, and sandals create a simple trainee silhouette. The lower robe is split into two animated panels that follow the legs and widen for riding.
+
+[src/monk-gait.ts](src/monk-gait.ts) samples deterministic foot targets for a **0.72-second walk cycle** and a **0.62-second run cycle**. The planted foot travels backward relative to the body at the player's forward speed. A two-link inverse-kinematics calculation positions each knee between the hip and ankle target. Opposing arms, subtle torso motion, cloth sway, and smooth transitions complete the pose. Idle uses slow breathing; riding brings the legs apart and the hands forward.
+
+The horse retains its Quaternius FBX model, normalized to approximately **1.9 m** in height. Three.js `FBXLoader` and `AnimationMixer` drive its idle, walk, and run clips. When mounted, the monk's hips follow the horse's animated saddle position. The previous knight and equipment files remain in the repository with their provenance, but the runtime no longer loads them.
 
 The rider or combined mounted actor renders into a **512 × 640** color/depth target. A parked horse uses a **384 × 512** target. The glyph fragment shader samples those targets, adapts cell size to zoom, and retains a faint body surface underneath the glyph ink so thin parts stay visible. Explicit atlas gradients avoid disappearing glyphs at mip boundaries.
 
@@ -231,7 +237,7 @@ Performance counters need context. `visibleBlades` counts resident vegetation, i
 
 ## Tests and current scope
 
-The **19 unit tests** cover deterministic vegetation, chunk boundaries, erase/restyle behavior, brush coverage, undo/redo, JSON round trips, validation, converter transparency and normals, collision, dismount placement, horse heading, and compatibility with older saves.
+The **31 unit tests** cover deterministic vegetation, chunk boundaries, erase/restyle behavior, brush coverage, undo/redo, JSON round trips, validation, converter transparency and normals, frozen poses, collision, dismount placement, horse heading, and compatibility with older saves. Nine gait tests check alternating footfalls, cycle continuity, planted-foot travel, reachable ankle targets, walking support, running flight, neutral idle/riding feet, and finite deterministic poses.
 
 Browser checks have exercised movement, riding transitions, actor visibility across headings/zoom levels, river editing and undo, reflection controls, and artwork preview. The README screenshots show the current implementation. A complete automated browser import/export regression suite and the fixed **2304 × 1440** performance acceptance run are still outstanding.
 
@@ -243,7 +249,9 @@ This is an experimental renderer and playable scene, with no stable engine SDK y
 src/
   main.ts                    UI, input, editor, imports and application lifecycle
   renderer.ts                World rendering, glyph atlas, camera and chunk lifecycle
-  actors.ts                  FBX animation, seated pose, equipment and capture targets
+  actors.ts                  Monk/horse coordination, horse FBX animation and capture targets
+  monk.ts                    Articulated novice, robe panels, limb IK and pose transitions
+  monk-gait.ts               Deterministic idle, walk, run and riding foot/body targets
   actor-surface.frag.glsl     Actor glyph shading and depth reconstruction
   shaders.ts                 Scenery and grass shaders
   stream.ts                  River ribbon geometry and material setup
@@ -257,7 +265,7 @@ src/
   style.css                  Monospace HUD and editor presentation
 public/
   art/                       Transparent scenery PNGs and generation provenance
-  models/                    Animated FBX assets, source credits and manifest
+  models/                    Horse FBX, archived prototype assets, source credits and manifest
   references/                Reference study frames and provenance
 docs/screenshots/            Current app captures and animated stream
 tests/                      World, conversion, history and riding tests
@@ -266,7 +274,8 @@ tests/                      World, conversion, history and riding tests
 ## Credits and provenance
 
 - Visual inspiration and reference study material come from **[Ansenjeo](https://x.com/Ansenjeo)**. This is an independent implementation based on footage and public descriptions. The original game's source code is not part of this repository.
-- Knight, horse, and equipment assets are by **[Quaternius](https://quaternius.com/)**, distributed under **CC0 1.0**. [Model sources](public/models/SOURCES.md) and the [asset manifest](public/models/manifest.json) record pack links, checksums, dimensions, and animations.
+- The novice monk geometry and procedural gait are original to this project.
+- The horse and the retained, unused knight/equipment prototype assets are by **[Quaternius](https://quaternius.com/)**, distributed under **CC0 1.0**. [Model sources](public/models/SOURCES.md) and the [asset manifest](public/models/manifest.json) record pack links, checksums, dimensions, and animations.
 - The transparent scenery artwork was generated specifically for this project. [Prompts and process](public/art/PROMPTS.md) document the source art used by the same importer available in the editor.
 - The included study frames are identified separately in [reference provenance](public/references/README.md). They are not screenshots of ASCII Engine.
 

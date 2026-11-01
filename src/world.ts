@@ -22,7 +22,7 @@ export function createWorld():WorldDocument {
  for(let i=0;i<150;i++){let x=rand()*120-48,z=rand()*160-80;add('rock',x,z,.4+rand()*.9);}
  [[-3,-4],[0,-6],[3,-5],[4,-2]].forEach(([x,z],i)=>add('ruin',x,z,i===1?1.3:.9));
  add('tree',8,-8,1.1);add('tree',12,3,.9);add('rock',2.4,1,.9);add('rock',-3,4,.8);add('tree',4,-3,1);add('tree',-5,-12,1.1);add('rock',-2,-1,.7);
- return {version:1,name:'Glyph Valley',seed:82173,size:256,props,strokes:[],river:{points:[[-55,-128],[-36,-80],[-24,-50],[-18,-25],[-15,0],[-28,35],[-22,65],[-39,100],[-46,128]],width:8.5},lighting:{moon:.38,wind:.5,haze:.06,torchColor:'#e5bd72',reflection:'night sky'},player:{x:0,z:3,angle:.2,mounted:true,torch:true,horse:[0,3],horseAngle:.2},assets:[]};
+ return {version:1,name:'Glyph Valley',seed:82173,size:256,props,strokes:[],river:{points:[[-55,-128],[-36,-80],[-24,-50],[-18,-25],[-15,0],[-28,35],[-22,65],[-39,100],[-46,128]],width:8.5},lighting:{moon:.38,wind:.5,haze:.06,torchColor:'#e5bd72',reflection:'night sky'},player:{x:0,z:3,angle:.2,mounted:false,torch:true,horse:[1.8,3],horseAngle:.2},assets:[]};
 }
 export function strokeWeight(x:number,z:number,s:Stroke){let d=Infinity;if(s.points.length===1)d=Math.hypot(x-s.points[0][0],z-s.points[0][1]);else for(let i=1;i<s.points.length;i++)d=Math.min(d,segmentDistance(x,z,s.points[i-1],s.points[i]));if(d>=s.radius)return 0;return Math.min(1,(s.radius-d)/Math.max(.01,s.radius*s.softness));}
 export function colorRGB(hex:string):[number,number,number]{return [parseInt(hex.slice(1,3),16)/255,parseInt(hex.slice(3,5),16)/255,parseInt(hex.slice(5,7),16)/255];}

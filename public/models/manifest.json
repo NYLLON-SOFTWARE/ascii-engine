@@ -1,0 +1,201 @@
+[
+  {
+    "id": "knight",
+    "path": "/models/knight.fbx",
+    "sha256": "41f2616fb4a42f9d35e242bbed1450ededc7537def4bf38cbb11b4e54ff2bf21",
+    "bytes": 2092236,
+    "units": "Source FBX units; normalize the loaded root using bounds.",
+    "bounds": {
+      "min": [
+        -109.98883367712484,
+        -0.31462767314234874,
+        -77.91284599393406
+      ],
+      "max": [
+        111.31292285162549,
+        558.4167081600314,
+        58.62269575818412
+      ],
+      "size": [
+        221.30175652875033,
+        558.7313358331737,
+        136.53554175211818
+      ]
+    },
+    "animations": [
+      {
+        "name": "HumanArmature|Idle_swordLeft",
+        "duration": 3.3333332538604736
+      },
+      {
+        "name": "HumanArmature|swordAttackJump",
+        "duration": 1.1666666269302368
+      },
+      {
+        "name": "HumanArmature|Run_swordAttack",
+        "duration": 0.8333333134651184
+      },
+      {
+        "name": "HumanArmature|Idle_swordRight",
+        "duration": 3.3333332538604736
+      },
+      {
+        "name": "HumanArmature|Idle",
+        "duration": 3.3333332538604736
+      },
+      {
+        "name": "HumanArmature|Death",
+        "duration": 1.4166666269302368
+      },
+      {
+        "name": "HumanArmature|Run",
+        "duration": 0.8333333134651184
+      },
+      {
+        "name": "HumanArmature|Run_swordRight",
+        "duration": 0.8333333134651184
+      },
+      {
+        "name": "HumanArmature|Walking",
+        "duration": 1.25
+      },
+      {
+        "name": "HumanArmature|Roll",
+        "duration": 1.25
+      },
+      {
+        "name": "HumanArmature|Jump",
+        "duration": 1.2083333730697632
+      },
+      {
+        "name": "HumanArmature|Roll_sword",
+        "duration": 1.25
+      }
+    ]
+  },
+  {
+    "id": "horse",
+    "path": "/models/horse.fbx",
+    "sha256": "6db270ddc7591e9a013f96eab445031381fa6d5d68d2feba567f964e0fe68d90",
+    "bytes": 1023564,
+    "units": "Source FBX units; normalize the loaded root using bounds.",
+    "bounds": {
+      "min": [
+        -127.62807731250922,
+        1.7968172893773289,
+        -412.37303218221723
+      ],
+      "max": [
+        128.32020218273357,
+        692.3784204680019,
+        511.69797115129234
+      ],
+      "size": [
+        255.9482794952428,
+        690.5816031786245,
+        924.0710033335096
+      ]
+    },
+    "animations": [
+      {
+        "name": "Armature|WalkSlow",
+        "duration": 2
+      },
+      {
+        "name": "Armature|Death",
+        "duration": 1.0833333730697632
+      },
+      {
+        "name": "Armature|Jump",
+        "duration": 1.5
+      },
+      {
+        "name": "Armature|Idle",
+        "duration": 6.25
+      },
+      {
+        "name": "Armature|Walk",
+        "duration": 2.6666667461395264
+      },
+      {
+        "name": "Armature|Run",
+        "duration": 0.8333333134651184
+      }
+    ]
+  },
+  {
+    "id": "helmet",
+    "path": "/models/helmet.fbx",
+    "sha256": "17fb40ea30b40d39646672ef895d0a383e976ba9d6f9eb730c50906029338ef7",
+    "bytes": 28204,
+    "units": "Source FBX units; normalize the loaded root using bounds.",
+    "bounds": {
+      "min": [
+        -74.49914216995239,
+        -120.61072709882097,
+        -80.65326391420977
+      ],
+      "max": [
+        74.49914216995239,
+        84.07020692296223,
+        80.7473856015165
+      ],
+      "size": [
+        148.99828433990479,
+        204.6809340217832,
+        161.4006495157263
+      ]
+    },
+    "animations": []
+  },
+  {
+    "id": "shoulder-pads",
+    "path": "/models/shoulder-pads.fbx",
+    "sha256": "e294173f3598e9e909b4cf0ec816021e5f434aea5717ec5ad194a06a661650a1",
+    "bytes": 16876,
+    "units": "Source FBX units; normalize the loaded root using bounds.",
+    "bounds": {
+      "min": [
+        -130.41493892669678,
+        -22.947248243505943,
+        -51.36065856950796
+      ],
+      "max": [
+        130.41493892669678,
+        22.947224401649002,
+        51.36066452997632
+      ],
+      "size": [
+        260.82987785339355,
+        45.89447264515495,
+        102.72132309948428
+      ]
+    },
+    "animations": []
+  },
+  {
+    "id": "sword",
+    "path": "/models/sword.fbx",
+    "sha256": "6318f52dd847cc9c5ca4136a92acc08fe38276261a0ade8a1ada42d9ba88f0ea",
+    "bytes": 30540,
+    "units": "Source FBX units; normalize the loaded root using bounds.",
+    "bounds": {
+      "min": [
+        -38.55740427970886,
+        -49.3692326297205,
+        -10.823053404978745
+      ],
+      "max": [
+        38.55740427970886,
+        385.8828087382904,
+        12.032498266914649
+      ],
+      "size": [
+        77.11480855941772,
+        435.2520413680109,
+        22.855551671893394
+      ]
+    },
+    "animations": []
+  }
+]

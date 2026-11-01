@@ -1,0 +1,166 @@
+{
+  "captured": "2026-11-01",
+  "captures": [
+    {
+      "file": "valley.jpg",
+      "description": "Default ruins, meadow, stream and mounted rider.",
+      "viewport": [
+        1600,
+        1000
+      ],
+      "player": {
+        "x": 0,
+        "z": 3,
+        "angle": 0.2,
+        "mounted": true,
+        "torch": true,
+        "horse": [
+          0,
+          3
+        ],
+        "horseAngle": 0.2
+      }
+    },
+    {
+      "file": "mounted.jpg",
+      "description": "Close view of the combined rider and horse glyph surface.",
+      "viewport": [
+        1600,
+        1000
+      ],
+      "player": {
+        "x": 0,
+        "z": 2,
+        "angle": 1.15,
+        "mounted": true,
+        "torch": true,
+        "horse": [
+          0,
+          2
+        ],
+        "horseAngle": 1.15
+      }
+    },
+    {
+      "file": "on-foot.jpg",
+      "description": "Dismounted knight beside the parked horse.",
+      "viewport": [
+        1600,
+        1000
+      ],
+      "player": {
+        "x": 0.7352773935914835,
+        "z": 0.3570249075310621,
+        "angle": 1.15,
+        "mounted": false,
+        "torch": true,
+        "horse": [
+          0,
+          2
+        ],
+        "horseAngle": 1.15
+      }
+    },
+    {
+      "file": "stream.jpg",
+      "description": "Flowing ASCII stream and feathered wet banks at the northern bend.",
+      "viewport": [
+        1600,
+        1000
+      ],
+      "player": {
+        "x": -18,
+        "z": 46,
+        "angle": -1.5707963267948966,
+        "mounted": true,
+        "torch": true,
+        "horse": [
+          -18,
+          46
+        ],
+        "horseAngle": 0.2
+      }
+    },
+    {
+      "file": "world-map.jpg",
+      "description": "World-derived symbol map with roads, river, landmarks, player and parked horse.",
+      "viewport": [
+        1600,
+        1000
+      ],
+      "player": {
+        "x": 0,
+        "z": -4,
+        "angle": 0,
+        "mounted": false,
+        "torch": true,
+        "horse": [
+          1.8,
+          -4
+        ],
+        "horseAngle": 0
+      }
+    },
+    {
+      "file": "editor.jpg",
+      "description": "Flower brush and scene authoring controls after one painted stroke.",
+      "viewport": [
+        1600,
+        1000
+      ],
+      "player": {
+        "x": 8,
+        "z": -40,
+        "angle": 0,
+        "mounted": false,
+        "torch": true,
+        "horse": [
+          9.8,
+          -40
+        ],
+        "horseAngle": 0
+      }
+    },
+    {
+      "file": "river-editor.jpg",
+      "description": "River control points, width, lighting and reflection controls.",
+      "viewport": [
+        1600,
+        1000
+      ],
+      "player": {
+        "x": 8,
+        "z": -40,
+        "angle": 0,
+        "mounted": false,
+        "torch": true,
+        "horse": [
+          9.8,
+          -40
+        ],
+        "horseAngle": 0
+      }
+    },
+    {
+      "file": "art-import.jpg",
+      "description": "Transparent PNG artwork converted into a glyph asset in the importer preview.",
+      "viewport": [
+        1600,
+        1000
+      ],
+      "player": {
+        "x": 8,
+        "z": -40,
+        "angle": 0,
+        "mounted": false,
+        "torch": true,
+        "horse": [
+          9.8,
+          -40
+        ],
+        "horseAngle": 0
+      }
+    }
+  ],
+  "errors": []
+}

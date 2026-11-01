@@ -1,8 +1,9 @@
 import * as T from 'three';
+import { retimeHorseWalk } from './horse-walk';
 
-export const HORSE_WALK_SPEED = 2.2;
+export const HORSE_WALK_SPEED = 1.1;
 export const HORSE_GALLOP_SPEED = 8;
-export const HORSE_WALK_RATE = 2;
+export const HORSE_WALK_RATE = 1.4;
 export const HORSE_GALLOP_RATE = 1.65;
 
 const hoofTracks = ['FrontFootL', 'FrontFootR', 'BackFootL', 'BackFootR']
@@ -80,7 +81,7 @@ export function prepareHorseClips(clips: T.AnimationClip[]): {
   // 2.667 s. Removing this padded half stops the horse gliding on fixed legs.
   return {
     idle: required('Idle').clone(),
-    walk: trimAt(walk, movingLoopEnd(walk)),
+    walk: retimeHorseWalk(trimAt(walk, movingLoopEnd(walk))),
     run: required('Run').clone()
   };
 }

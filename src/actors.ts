@@ -5,12 +5,14 @@ import type { WorldDocument } from './types';
 import { terrainHeight } from './world';
 import { NoviceMonk } from './monk';
 import { prepareHorseClips, HORSE_WALK_RATE, HORSE_GALLOP_RATE } from './horse-animation';
+import { bakeHorseLimbMotion, createHorseHoofConstraint } from './horse-limbs';
 
 type Motion = 'idle' | 'walk' | 'run' | 'ride';
 interface Rig {
   root: T.Group;
   mixer: T.AnimationMixer;
   actions: Partial<Record<Motion, T.AnimationAction>>;
+  constrainHooves: () => void;
   active?: T.AnimationAction;
 }
 const vertexShader = 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
@@ -44,9 +46,9 @@ function prepareRig(model: T.Group, height: number, palette: T.Color[]): Rig {
   const mixer = new T.AnimationMixer(model);
   const actions: Rig['actions'] = {};
   for (const [motion, clip] of Object.entries(prepareHorseClips(model.animations))) {
-    actions[motion as Motion] = mixer.clipAction(clip);
+    actions[motion as Motion] = mixer.clipAction(motion === 'idle' ? clip : bakeHorseLimbMotion(model, clip));
   }
-  return { root, mixer, actions };
+  return { root, mixer, actions, constrainHooves: createHorseHoofConstraint(model) };
 }
 
 function setMotion(rig: Rig, motion: Motion, immediate = false) {
@@ -176,6 +178,7 @@ export class Actors {
     if (dt > 0 || immediateTransition) {
       setMotion(this.horse, player.mounted ? locomotion : 'idle', immediateTransition);
       this.horse.mixer.update(dt);
+      this.horse.constrainHooves();
     }
     this.placeRider(player.mounted);
     this.moon.intensity = 1.1 + world.lighting.moon * 2.7;
@@ -211,6 +214,7 @@ export class Actors {
       if (!rig) continue;
       setMotion(rig, 'idle', true);
       rig.mixer.setTime(time);
+      rig.constrainHooves();
     }
   }
   get info() { return this.clipsInfo; }

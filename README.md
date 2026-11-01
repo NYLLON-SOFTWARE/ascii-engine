@@ -30,7 +30,7 @@ The still screenshots are captures of the running application at 1600 × 1000. T
 
 ![The horse walking, then galloping with alternating hoof strikes, folded legs and an extended stride](docs/screenshots/horse-gallop.gif)
 
-Ride with **WASD** and hold **Shift** to gallop. The horse's four legs cycle continuously, and the novice follows the animated saddle. This close-up records actual movement through the meadow.
+Ride with **WASD** and hold **Shift** to gallop. The horse's upper and lower leg joints move together through a four-beat walk and a faster gallop. The novice follows the animated saddle. This close-up records actual movement through the meadow.
 
 ### Walking and a parked horse
 
@@ -88,7 +88,7 @@ All runtime artwork and models are bundled. The build currently expects to be se
 - A seeded **256 × 256 meter** world with a hand-placed ruin area, scattered trees and rocks, a winding path, flowers, and a river.
 - An orthographic camera pitched approximately **55° downward**, smooth player following, and mouse-wheel zoom.
 - A novice monk with a matte clay-colored robe, crossed linen collar, sash, shaved head, trousers, and sandals. The scene starts on foot with the horse nearby.
-- Walking at **1.75 m/s**, running at **4.3 m/s**, mounted walking at **2.2 m/s**, and galloping at **8 m/s**, with calm idle and distinct locomotion states. Alternating footfalls, opposing arm swings, and split robe panels make each step visible.
+- Walking at **1.75 m/s**, running at **4.3 m/s**, mounted walking at **1.1 m/s**, and galloping at **8 m/s**, with calm idle and distinct locomotion states. Alternating footfalls, opposing arm swings, and split robe panels make each step visible.
 - Mounting within reach of the horse and collision-checked dismount positions. The horse waits at its last position and heading while the novice walks away.
 - Basic circular prop collision, river collision, and world boundaries.
 - A toggleable warm torch, moonlight, wind, haze, and configurable stylized sky reflection.
@@ -195,7 +195,11 @@ The novice monk is original articulated Three.js geometry built in [src/monk.ts]
 
 The horse retains its Quaternius FBX model, normalized to approximately **1.9 m** in height. Three.js `FBXLoader` and `AnimationMixer` drive its idle, walk, and run clips. When mounted, the monk's hips follow the horse's animated saddle position. The previous knight and equipment files remain in the repository with their provenance, but the runtime no longer loads them.
 
-[src/horse-animation.ts](src/horse-animation.ts) removes the source Walk clip's stationary second half, producing a continuous **1.333-second** authored cycle. It plays at **2×** speed for the walking pace. The **0.833-second** Run clip plays at **1.65×** for galloping, showing folded legs, extension, and push-off. Gait changes preserve cycle phase and crossfade over 0.14 seconds. Pausing preserves the current stride, and an unmounted horse returns to idle. The bundled FBX is retained unchanged.
+[src/horse-animation.ts](src/horse-animation.ts) removes the source Walk clip's stationary second half. [src/horse-walk.ts](src/horse-walk.ts) retimes its hoof trajectories to a four-beat **left hind → left front → right hind → right front** sequence, with approximately **63–64% stance** and at least two supporting hooves. The **1.333-second** clip plays at **1.4×**, giving a relaxed **0.95-second** stride at **1.1 m/s**. The **0.833-second** Run clip plays at **1.65×** for galloping.
+
+The source FBX also moves independent hoof controls without sufficiently animating the leg chains above them. [src/horse-limbs.ts](src/horse-limbs.ts) reconstructs those missing constraints with two-link inverse kinematics, preserving segment lengths and distinct fore/hind bend directions. Corrected quaternion tracks are baked once at **60 Hz** when loading, leaving ordinary animation playback and four cached hoof attachment corrections in the frame loop. Those corrections prevent the independently weighted hooves from separating during gait crossfades. This makes the upper legs follow the hooves instead of stretching the lower legs. [Research, diagnosis and limitations](docs/horse-motion.md) describe the equine studies behind the correction.
+
+Gait changes preserve cycle phase and crossfade over 0.14 seconds. Pausing preserves the current stride, and an unmounted horse returns to idle. The bundled FBX is retained unchanged.
 
 The rider or combined mounted actor renders into a **512 × 640** color/depth target. A parked horse uses a **384 × 512** target. The glyph fragment shader samples those targets, adapts cell size to zoom, and retains a faint body surface underneath the glyph ink so thin parts stay visible. Explicit atlas gradients avoid disappearing glyphs at mip boundaries.
 
@@ -245,7 +249,7 @@ Performance counters need context. `visibleBlades` counts resident vegetation, i
 
 ## Tests and current scope
 
-The **35 unit tests** cover deterministic vegetation, chunk boundaries, erase/restyle behavior, brush coverage, undo/redo, JSON round trips, validation, converter transparency and normals, frozen poses, collision, dismount placement, horse heading, and compatibility with older saves. Nine gait tests check alternating footfalls, cycle continuity, planted-foot travel, reachable ankle targets, walking support, running flight, neutral idle/riding feet, and finite deterministic poses. Four tests parse the actual horse FBX to verify removal of the walking hold, movement of all four hooves, loop continuity, and preservation of the source clips.
+The **49 unit tests** cover deterministic vegetation, chunk boundaries, erase/restyle behavior, brush coverage, undo/redo, JSON round trips, validation, converter transparency and normals, frozen poses, collision, dismount placement, horse heading, and compatibility with older saves. Nine gait tests check alternating footfalls, cycle continuity, planted-foot travel, reachable ankle targets, walking support, running flight, neutral idle/riding feet, and finite deterministic poses. Horse tests parse the actual FBX to check loop trimming, four-beat contact order, overlapping support, constant stance retreat, upper-leg motion, fixed segment lengths, distinct fore/hind bends, grounded hoof paths, continuity between baked samples and across loop boundaries, attachment during gait crossfades, and preservation of the source clips and model.
 
 Browser checks have exercised movement, riding transitions, actor visibility across headings/zoom levels, river editing and undo, reflection controls, and artwork preview. The README screenshots show the current implementation. A complete automated browser import/export regression suite and the fixed **2304 × 1440** performance acceptance run are still outstanding.
 
@@ -259,6 +263,8 @@ src/
   renderer.ts                World rendering, glyph atlas, camera and chunk lifecycle
   actors.ts                  Monk/horse coordination, horse FBX animation and capture targets
   horse-animation.ts         Continuous horse clips and coordinated gait/speed settings
+  horse-walk.ts              Four-beat contact timing and grounded stance
+  horse-limbs.ts             Connected fore/hind leg IK baked into quaternion tracks
   monk.ts                    Articulated novice, robe panels, limb IK and pose transitions
   monk-gait.ts               Deterministic idle, walk, run and riding foot/body targets
   actor-surface.frag.glsl     Actor glyph shading and depth reconstruction

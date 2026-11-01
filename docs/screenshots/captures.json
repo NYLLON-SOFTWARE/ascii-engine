@@ -211,7 +211,7 @@
     },
     {
       "file": "horse-gallop.gif",
-      "description": "Actual mounted keyboard movement: idle, walk, Shift-gallop, and stop. Camera follows the rider.",
+      "description": "Actual keyboard riding with connected upper/lower leg motion: idle, four-beat walk, Shift-gallop, and stop. Camera follows the rider.",
       "captured": "2026-11-01",
       "sourceViewport": [
         1280,
@@ -227,16 +227,17 @@
         680,
         440
       ],
-      "frames": 84,
+      "frames": 100,
       "fps": 16,
-      "durationMs": 5250,
-      "bytes": 7919350,
+      "durationMs": 6250,
+      "bytes": 9272389,
       "settings": {
         "wind": 0,
-        "walkSpeed": 2.2,
+        "walkSpeed": 1.1,
         "gallopSpeed": 8,
-        "walkPlaybackRate": 2,
-        "gallopPlaybackRate": 1.65
+        "walkPlaybackRate": 1.4,
+        "gallopPlaybackRate": 1.65,
+        "cameraSpan": 8.5
       }
     }
   ]

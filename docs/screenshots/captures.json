@@ -166,25 +166,24 @@
   "character": "Procedural novice monk",
   "animations": [
     {
-      "file": "running-around.gif",
-      "description": "Novice monk dismounting, walking and running using E, WASD and Shift.",
+      "file": "monk-walk-closeup.gif",
+      "description": "On-foot novice walking a closed loop at maximum wheel zoom, with short runs through two corners.",
       "captured": "2026-11-01",
-      "sourceViewport": [
-        1280,
-        800
-      ],
-      "size": [
-        960,
-        600
-      ],
-      "frames": 102,
-      "fps": 12,
-      "durationMs": 8500,
-      "bytes": 4396080,
+      "sourceViewport": [1440, 900],
+      "crop": [330, 247, 792, 540],
+      "size": [704, 480],
+      "frames": 144,
+      "fps": 20,
+      "durationMs": 7200,
+      "bytes": 9044120,
       "settings": {
-        "fixedCamera": true,
+        "seed": 82173,
+        "start": [4, 5],
+        "cameraSpan": 6,
+        "camera": "in-game player follow",
+        "mounted": false,
         "wind": 0,
-        "cursorIndicator": false
+        "input": "WASD and Shift"
       }
     },
     {
@@ -260,6 +259,24 @@
         "gallopSpeed": 8,
         "camera": "follows the horse",
         "input": "WASD and Shift"
+      }
+    },
+    {
+      "file": "trickling-stream.gif",
+      "description": "ASCII punctuation moves downstream along the softly lit bank.",
+      "captured": "2026-10-31",
+      "sourceViewport": [1317, 1220],
+      "crop": [125, 295, 504, 370],
+      "size": [504, 370],
+      "frames": 48,
+      "fps": 12,
+      "durationMs": 4000,
+      "bytes": 3486516,
+      "settings": {
+        "cameraSpan": 38,
+        "cameraTarget": [-18, 45],
+        "fixedCamera": true,
+        "startTime": 4
       }
     }
   ]

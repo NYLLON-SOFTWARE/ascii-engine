@@ -2,13 +2,9 @@
 
 A playable world made of letters, light, and moving grass. **ASCII Engine** is a TypeScript and WebGL2 experiment in rendering interactive scenery and animated 3D characters as glyphs. **Glyph Valley** is the included single-player demo, with a novice monk, a moonlit meadow, ruins, a horse, a trickling ASCII stream, and an in-browser world editor.
 
-![Novice monk walking and running beside the parked horse, with animated glyph characters and interactive grass](docs/screenshots/running-around.gif)
+![Close-up of the robed novice walking a loop through the grass and briefly breaking into a run](docs/screenshots/monk-walk-closeup.gif)
 
-Start on foot as a novice in a simple robe. Use **WASD** to walk and hold **Shift** to run. Your horse waits nearby; press **E** within reach to mount.
-
-![Placing a tree, ruins, rocks and flowers through the live scene editor](docs/screenshots/placing-objects.gif)
-
-Open **F2**, choose an asset, and place it directly into the world. This recording adds a tree, a ruin fragment, two rocks, and flowers. The cursor ring highlights the clicks.
+Use the mouse wheel to zoom in on the novice. Each sandal plants as the opposite sleeve swings forward. Walk through the meadow with **WASD**, hold **Shift** to run, and press **E** beside the horse to mount.
 
 Built with **Three.js, custom GLSL shaders, Vite, and Web Workers**. Runs locally in a desktop browser. No account, API key, backend, or Blender installation is needed.
 
@@ -16,15 +12,7 @@ Built with **Three.js, custom GLSL shaders, Vite, and Web Workers**. Runs locall
 
 ## Screenshots
 
-The still screenshots are captures of the running application at 1600 × 1000. The opening GIFs show actual keyboard movement and editor placement, recorded with a fixed camera and calm wind. The stream animation is a four-second crop from the running renderer. Click an image to inspect it at full size.
-
-### The valley
-
-![Glyph Valley — novice monk among glyph ruins, trees, grass and a flowing stream](docs/screenshots/valley.jpg)
-
-### Fine glyphs on animated characters
-
-![Mounted novice monk and horse, with fine actor glyphs and individual grass blades](docs/screenshots/mounted.jpg)
+The walking, riding, water and editor animations are captures of the running game. The stills show the wider scene and controls at 1600 × 1000.
 
 ### A continuous walk and gallop
 
@@ -38,13 +26,11 @@ Ride with **WASD** and hold **Shift** to gallop. The horse's upper and lower leg
 
 Changing direction with **WASD** steers the horse through an arc. At a walk, the pair tip inward slightly; at a gallop, the horse takes a wider turn and the monk leans farther into it. His head stays steadier than his shoulders. Both settle upright as the path straightens or the horse stops.
 
-### Walking and a parked horse
+### The valley
 
-![Novice monk beside the horse, with a nearby mount prompt](docs/screenshots/on-foot.jpg)
+![Glyph Valley with the novice monk among ruins, trees, grass and a flowing stream](docs/screenshots/valley.jpg)
 
 ### A river of moving punctuation
-
-![Stream bend with irregular, softly blended banks](docs/screenshots/stream.jpg)
 
 ![Animated ASCII water trickling downstream, with slower currents at the banks](docs/screenshots/trickling-stream.gif)
 
@@ -52,7 +38,11 @@ Changing direction with **WASD** steers the horse through an arc. At a walk, the
 
 ![Pan-and-zoom symbol map showing the river, road, landmarks, player and horse](docs/screenshots/world-map.jpg)
 
-### Paint the meadow while the game is running
+### Place props and paint the meadow
+
+![Placing a tree, a ruin fragment, two rocks and flowers in the live scene editor](docs/screenshots/placing-objects.gif)
+
+Open **F2**, choose an asset, and click to place it. The cursor ring marks each placement in the recording.
 
 ![Scene editor showing a flower brush, prop controls and atmosphere settings](docs/screenshots/editor.jpg)
 

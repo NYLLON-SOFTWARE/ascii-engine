@@ -2,7 +2,13 @@
 
 A playable world made of letters, light, and moving grass. **ASCII Engine** is a TypeScript and WebGL2 experiment in rendering interactive scenery and animated 3D characters as glyphs. **Glyph Valley** is the included single-player demo, with a moonlit meadow, ruins, a horse, a trickling ASCII stream, and an in-browser world editor.
 
-![Glyph Valley — mounted rider among glyph ruins, trees, grass and a flowing stream](docs/screenshots/valley.jpg)
+![Dismounting and running around the parked horse, with animated glyph characters and interactive grass](docs/screenshots/running-around.gif)
+
+Dismount, hold **Shift + WASD**, and explore on foot. Your horse waits where you left it.
+
+![Placing a tree, ruins, rocks and flowers through the live scene editor](docs/screenshots/placing-objects.gif)
+
+Open **F2**, choose an asset, and place it directly into the world. This recording adds a tree, a ruin fragment, two rocks, and flowers. The cursor ring highlights the clicks.
 
 Built with **Three.js, custom GLSL shaders, Vite, and Web Workers**. Runs locally in a desktop browser. No account, API key, backend, or Blender installation is needed.
 
@@ -10,7 +16,11 @@ Built with **Three.js, custom GLSL shaders, Vite, and Web Workers**. Runs locall
 
 ## Screenshots
 
-These are captures of the running application at 1600 × 1000. Click an image to inspect it at full size. The stream animation is a four-second crop from the running renderer.
+The still screenshots are captures of the running application at 1600 × 1000. The opening GIFs show actual keyboard movement and editor placement, recorded with a fixed camera and calm wind. The stream animation is a four-second crop from the running renderer. Click an image to inspect it at full size.
+
+### The valley
+
+![Glyph Valley — mounted rider among glyph ruins, trees, grass and a flowing stream](docs/screenshots/valley.jpg)
 
 ### Fine glyphs on animated characters
 

@@ -162,5 +162,51 @@
       }
     }
   ],
-  "errors": []
+  "errors": [],
+  "animations": [
+    {
+      "file": "running-around.gif",
+      "description": "Dismounting and running around the parked horse using E and Shift + WASD.",
+      "captured": "2026-11-01",
+      "sourceViewport": [
+        1280,
+        800
+      ],
+      "size": [
+        960,
+        600
+      ],
+      "frames": 105,
+      "fps": 12,
+      "durationMs": 8750,
+      "bytes": 5386651,
+      "settings": {
+        "fixedCamera": true,
+        "wind": 0,
+        "cursorIndicator": false
+      }
+    },
+    {
+      "file": "placing-objects.gif",
+      "description": "Placing a tree, a ruin fragment, two rocks and flowers through the editor.",
+      "captured": "2026-11-01",
+      "sourceViewport": [
+        1280,
+        800
+      ],
+      "size": [
+        960,
+        600
+      ],
+      "frames": 138,
+      "fps": 12,
+      "durationMs": 11500,
+      "bytes": 847296,
+      "settings": {
+        "fixedCamera": true,
+        "wind": 0,
+        "cursorIndicator": true
+      }
+    }
+  ]
 }

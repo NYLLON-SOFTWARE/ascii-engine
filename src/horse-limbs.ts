@@ -68,6 +68,20 @@ function pointBone(bone: T.Object3D, child: T.Object3D, target: T.Vector3) {
   bone.updateWorldMatrix(false, true);
 }
 
+type Chain = Pick<Leg, 'upper' | 'lower' | 'tip' | 'upperLength' | 'lowerLength'>;
+
+function aimChain(leg: Chain, hip: T.Vector3, target: T.Vector3, bendToward: T.Vector3, reach: number) {
+  const direction = target.clone().sub(hip);
+  const distance = T.MathUtils.clamp(direction.length(), Math.abs(leg.upperLength - leg.lowerLength) + 1e-6, reach);
+  direction.normalize();
+  const pole = bendToward.clone().addScaledVector(direction, -bendToward.dot(direction)).normalize();
+  const along = (leg.upperLength ** 2 - leg.lowerLength ** 2 + distance ** 2) / (2 * distance);
+  const bend = Math.sqrt(Math.max(0, leg.upperLength ** 2 - along ** 2));
+  const joint = hip.clone().addScaledVector(direction, along).addScaledVector(pole, bend);
+  pointBone(leg.upper, leg.lower, joint);
+  pointBone(leg.lower, leg.tip, target);
+}
+
 /** Keep the separately skinned hoof controls attached during action blending. */
 export function createHorseHoofConstraint(model: T.Group): () => void {
   const pairs = ['Front', 'Back'].flatMap(part => ['L', 'R'].map(side => ({
@@ -201,16 +215,7 @@ export function bakeHorseLimbMotion(model: T.Group, source: T.AnimationClip): T.
         horizontal.setLength(horizontalReach);
         target.copy(hip).addScaledVector(rootUp, vertical).add(horizontal);
       }
-      const direction = target.clone().sub(hip);
-      const distance = T.MathUtils.clamp(direction.length(), Math.abs(leg.upperLength - leg.lowerLength) + 1e-6, reach);
-      direction.normalize();
-      const pole = anatomicalForward.clone().multiplyScalar(leg.pole)
-        .addScaledVector(direction, -anatomicalForward.dot(direction) * leg.pole).normalize();
-      const along = (leg.upperLength ** 2 - leg.lowerLength ** 2 + distance ** 2) / (2 * distance);
-      const bend = Math.sqrt(Math.max(0, leg.upperLength ** 2 - along ** 2));
-      const joint = hip.clone().addScaledVector(direction, along).addScaledVector(pole, bend);
-      pointBone(leg.upper, leg.lower, joint);
-      pointBone(leg.lower, leg.tip, target);
+      aimChain(leg, hip, target, anatomicalForward.clone().multiplyScalar(leg.pole), reach);
       leg.hoof.position.copy(leg.hoof.parent!.worldToLocal(target.clone()));
       leg.hoof.updateWorldMatrix(false, true);
       for (const bone of [leg.upper, leg.lower]) {
@@ -235,4 +240,75 @@ export function bakeHorseLimbMotion(model: T.Group, source: T.AnimationClip): T.
   }
   for (const sample of samplers) sample.binding.unbind();
   return result;
+}
+
+/** Layer a bank onto the current mixer pose. The frame carries both the saddle
+ * and the monk. Stance hooves retain their pre-bank position and orientation;
+ * swinging hooves progressively follow the tilt as they leave the ground. */
+export function createHorseTurnPose(model: T.Group, frame: T.Group) {
+  const legs = ['Front', 'Back'].flatMap(part => ['L', 'R'].map(side => {
+    const upper = required(model, part + 'UpLeg' + side), lower = required(model, part + 'LowLeg' + side);
+    const tip = required(model, part + 'LowLeg' + side + '_end'), hoof = required(model, part + 'Foot' + side);
+    return {
+      upper, lower, tip, hoof, upperLength: position(upper).distanceTo(position(lower)),
+      lowerLength: position(lower).distanceTo(position(tip)), bindFoot: frame.worldToLocal(position(hoof)),
+      upperQ: new T.Quaternion(), lowerQ: new T.Quaternion(), hoofQ: new T.Quaternion(),
+      hoofP: new T.Vector3(), target: new T.Vector3(), targetQ: new T.Quaternion(), support: 0
+    };
+  }));
+  const halfWidth = Math.max(...legs.map(leg => Math.abs(leg.bindFoot.x)));
+  const ground = Math.min(...legs.map(leg => leg.bindFoot.y));
+  let applied = false;
+  function clear() {
+    if (!applied) return;
+    frame.rotation.z = 0;
+    frame.position.set(0, 0, 0);
+    for (const leg of legs) {
+      leg.upper.quaternion.copy(leg.upperQ);
+      leg.lower.quaternion.copy(leg.lowerQ);
+      leg.hoof.position.copy(leg.hoofP);
+      leg.hoof.quaternion.copy(leg.hoofQ);
+    }
+    applied = false;
+  }
+  function apply(roll: number) {
+    clear();
+    if (!roll) return;
+    const side = Math.sign(roll);
+    let outside = halfWidth;
+    for (const leg of legs) {
+      // Restore these before the next mixer update, including paused frames:
+      // the mixer need not rewrite an unchanged bone on every sample.
+      leg.upperQ.copy(leg.upper.quaternion);
+      leg.lowerQ.copy(leg.lower.quaternion);
+      leg.hoofP.copy(leg.hoof.position);
+      leg.hoofQ.copy(leg.hoof.quaternion);
+      leg.tip.getWorldPosition(leg.target);
+      leg.hoof.getWorldQuaternion(leg.targetQ);
+      const localFoot = frame.worldToLocal(leg.target.clone());
+      outside = Math.max(outside, side * localFoot.x);
+      const lift = localFoot.y - leg.bindFoot.y;
+      leg.support = 1 - T.MathUtils.smoothstep(lift, 0.01, 0.18);
+    }
+    // Pivot near the outside hoof line. The inside legs can flex into the
+    // turn without forcing the outside legs to stretch below ground.
+    const pivot = side * outside, c = Math.cos(roll), s = Math.sin(roll);
+    frame.rotation.z = roll;
+    frame.position.set(pivot * (1 - c) + ground * s, ground * (1 - c) - pivot * s, 0);
+    applied = true;
+    model.updateWorldMatrix(true, true);
+    for (const leg of legs) {
+      if (!leg.support) continue;
+      const hip = position(leg.upper), tip = position(leg.tip);
+      const axis = tip.clone().sub(hip).normalize(), pole = position(leg.lower).sub(hip);
+      pole.addScaledVector(axis, -pole.dot(axis));
+      const target = tip.lerp(leg.target, leg.support);
+      aimChain(leg, hip, target, pole, leg.upperLength + leg.lowerLength);
+      const foot = leg.hoof;
+      const rotation = foot.getWorldQuaternion(new T.Quaternion()).slerp(leg.targetQ, leg.support);
+      foot.position.copy(foot.parent!.worldToLocal(position(leg.tip)));
+      foot.quaternion.copy(foot.parent!.getWorldQuaternion(new T.Quaternion()).invert().multiply(rotation));
+    }
+  }
+  return { apply, clear };
 }

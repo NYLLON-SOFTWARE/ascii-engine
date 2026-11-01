@@ -32,6 +32,12 @@ The still screenshots are captures of the running application at 1600 × 1000. T
 
 Ride with **WASD** and hold **Shift** to gallop. The horse's upper and lower leg joints move together through a four-beat walk and a faster gallop. The novice leans into the gallop, rises and settles with the stride, and absorbs the motion through his knees and elbows. This close-up records actual movement through the meadow.
 
+### Leaning into turns
+
+![Horse and monk banking left and right at a walk and gallop, then settling upright](docs/screenshots/mounted-turns.gif)
+
+Changing direction with **WASD** steers the horse through an arc. At a walk, the pair tip inward slightly; at a gallop, the horse takes a wider turn and the monk leans farther into it. His head stays steadier than his shoulders. Both settle upright as the path straightens or the horse stops.
+
 ### Walking and a parked horse
 
 ![Novice monk beside the horse, with a nearby mount prompt](docs/screenshots/on-foot.jpg)
@@ -90,6 +96,7 @@ All runtime artwork and models are bundled. The build currently expects to be se
 - A novice monk with a matte clay-colored robe, crossed linen collar, sash, shaved head, trousers, and sandals. The scene starts on foot with the horse nearby.
 - Walking at **1.75 m/s**, running at **4.3 m/s**, mounted walking at **1.1 m/s**, and galloping at **8 m/s**, with calm idle and distinct locomotion states. Alternating footfalls, opposing arm swings, and split robe panels make each step visible.
 - Mounting within reach of the horse and collision-checked dismount positions. The horse waits at its last position and heading while the novice walks away.
+- Mounted steering follows the horse's heading. Turn speed and actual travel set how far the horse and monk bank, including when the player reverses direction.
 - Basic circular prop collision, river collision, and world boundaries.
 - A toggleable warm torch, moonlight, wind, haze, and configurable stylized sky reflection.
 - A compact monospace HUD, local activity log, minimap, clickable hotbar, and nearby mount prompt.
@@ -199,7 +206,9 @@ The horse retains its Quaternius FBX model, normalized to approximately **1.9 m*
 
 [src/horse-animation.ts](src/horse-animation.ts) removes the source Walk clip's stationary second half. [src/horse-walk.ts](src/horse-walk.ts) retimes its hoof trajectories to a four-beat **left hind → left front → right hind → right front** sequence, with approximately **63–64% stance** and at least two supporting hooves. The **1.333-second** clip plays at **1.4×**, giving a relaxed **0.95-second** stride at **1.1 m/s**. The **0.833-second** Run clip plays at **1.65×** for galloping.
 
-The source FBX also moves independent hoof controls without sufficiently animating the leg chains above them. [src/horse-limbs.ts](src/horse-limbs.ts) reconstructs those missing constraints with two-link inverse kinematics, preserving segment lengths and distinct fore/hind bend directions. Corrected quaternion tracks are baked once at **60 Hz** when loading, leaving ordinary animation playback and four cached hoof attachment corrections in the frame loop. Those corrections prevent the independently weighted hooves from separating during gait crossfades. This makes the upper legs follow the hooves instead of stretching the lower legs. [Research, diagnosis and limitations](docs/horse-motion.md) describe the equine studies behind the correction.
+The source FBX moves independent hoof controls without sufficiently animating the leg chains above them. [src/horse-limbs.ts](src/horse-limbs.ts) reconstructs those constraints with two-link inverse kinematics, preserving segment lengths and distinct fore/hind bend directions. Corrected tracks are baked at **60 Hz** during loading. Four attachment corrections keep the separately weighted hooves on the legs during gait crossfades.
+
+[src/mounted-steering.ts](src/mounted-steering.ts) moves the mount along its changing heading. Its signed turn rate and actual travel speed drive a bank capped at **18°**. The horse, saddle and monk share the roll; the monk adds a small shoulder lean and partly counter-rotates his head. During a bank, the renderer adjusts the legs so planted hooves keep their original gait position and orientation while lifted hooves follow the tilt. [Horse motion research and rig notes](docs/horse-motion.md) explain the measurements and limits.
 
 Gait changes preserve cycle phase and crossfade over 0.14 seconds. Pausing preserves the current stride, and an unmounted horse returns to idle. The bundled FBX is retained unchanged.
 
@@ -251,9 +260,9 @@ Performance counters need context. `visibleBlades` counts resident vegetation, i
 
 ## Tests and current scope
 
-The **57 unit tests** cover deterministic vegetation, chunk boundaries, erase/restyle behavior, brush coverage, undo/redo, JSON round trips, validation, converter transparency and normals, frozen poses, collision, dismount placement, horse heading, and compatibility with older saves. Nine gait tests check alternating footfalls, cycle continuity, planted-foot travel, reachable ankle targets, walking support, running flight, neutral idle/riding feet, and finite deterministic poses. Horse tests parse the actual FBX to check loop trimming, four-beat contact order, overlapping support, constant stance retreat, upper-leg motion, fixed segment lengths, distinct fore/hind bends, grounded hoof paths, continuity between baked samples and across loop boundaries, attachment during gait crossfades, and preservation of the source clips and model. Rider tests verify periodic poses, gait blending, reduced vertical motion against the real FBX saddle, stable hand/foot targets, and complete freeze/reset/dismount behavior.
+The **63 unit tests** cover deterministic vegetation, chunk boundaries, erase/restyle behavior, brush coverage, undo/redo, JSON round trips, validation, converter transparency and normals, frozen poses, collision, dismount placement, horse heading, and compatibility with older saves. Monk gait tests check footfalls, planted-foot travel, walking support and running flight. Horse tests load the actual FBX to check contact order, segment lengths, gait transitions, grounded hooves during either bank, and preservation of the source model. Rider tests check gait blending, seat movement against the animated saddle, hand/foot targets, and head and shoulder response in a turn. Steering tests cover curved travel, speed-dependent bank, frame-rate stability, reversals through the angle wrap, and blocked movement.
 
-Browser checks have exercised movement, riding transitions, actor visibility across headings/zoom levels, river editing and undo, reflection controls, and artwork preview. The README screenshots show the current implementation. A complete automated browser import/export regression suite and the fixed **2304 × 1440** performance acceptance run are still outstanding.
+Browser checks have exercised movement, riding transitions, actor visibility across headings/zoom levels, river editing and undo, reflection controls, and artwork preview. The mounted-turn capture uses real keyboard input; browser checks also cover a galloping U-turn, pausing mid-bank, and dismount/remount without a leftover tilt. A complete automated browser import/export regression suite and the fixed **2304 × 1440** performance acceptance run are still outstanding.
 
 This is an experimental renderer and playable scene, with no stable engine SDK yet. Multiplayer, combat, progression, trading, desktop packaging, and sketch-driven world generation are outside this build. HP, MP, and level displays are decorative. Some visual effects use deliberate approximations, including projected shadows, billboard scenery, shallow terrain, and procedural reflection. Exact visual matching to the inspiration footage has not been certified.
 
@@ -266,7 +275,8 @@ src/
   actors.ts                  Monk/horse coordination, horse FBX animation and capture targets
   horse-animation.ts         Continuous horse clips and coordinated gait/speed settings
   horse-walk.ts              Four-beat contact timing and grounded stance
-  horse-limbs.ts             Connected fore/hind leg IK baked into quaternion tracks
+  horse-limbs.ts             Baked leg motion and hoof support during banks
+  mounted-steering.ts        Curved travel, turning rate and inward bank
   rider-motion.ts            Horse-synchronized seat, torso, head and cloth response
   monk.ts                    Articulated novice, robe panels, limb IK and pose transitions
   monk-gait.ts               Deterministic idle, walk, run and riding foot/body targets

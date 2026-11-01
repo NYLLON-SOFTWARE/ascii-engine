@@ -6,7 +6,7 @@ import { prepareHorseClips } from '../src/horse-animation';
 import { bakeHorseLimbMotion } from '../src/horse-limbs';
 import { sampleRiderMotion, type RiderPose } from '../src/rider-motion';
 
-const keys = ['seatLift', 'seatForward', 'pelvisPitch', 'pelvisRoll', 'lean', 'torsoRoll', 'headPitch', 'clothSway'] as const;
+const keys = ['seatLift', 'seatForward', 'pelvisPitch', 'pelvisRoll', 'lean', 'torsoRoll', 'headPitch', 'clothSway', 'headRoll'] as const;
 const sample = (phase: number, runWeight = 1, walkWeight = 0) =>
   sampleRiderMotion({ walkPhase: phase, runPhase: phase, walkWeight, runWeight });
 const range = (values: number[]) => Math.max(...values) - Math.min(...values);
@@ -34,6 +34,21 @@ describe('horse-driven rider motion', () => {
       expect(Math.abs(pose.seatForward)).toBeLessThan(0.04);
       expect(Math.abs(pose.pelvisPitch)).toBeLessThan(0.06);
       expect(Math.abs(pose.lean + pose.headPitch)).toBeLessThan(Math.abs(pose.lean));
+    }
+  });
+
+  it('adds an inward shoulder lean while keeping the head steadier and preserving the seat', () => {
+    const stride = { walkPhase: 0, runPhase: 0.4, runWeight: 1, walkWeight: 0 };
+    const straight = sampleRiderMotion(stride);
+    for (const bank of [-0.3, 0.3]) {
+      const turn = sampleRiderMotion({ ...stride, bank });
+      const shoulders = bank + turn.torsoRoll - straight.torsoRoll;
+      const head = shoulders + turn.headRoll - straight.headRoll;
+      expect(shoulders * Math.sign(bank)).toBeGreaterThan(Math.abs(bank));
+      expect(head * Math.sign(bank)).toBeGreaterThan(0);
+      expect(Math.abs(head)).toBeLessThan(Math.abs(shoulders));
+      expect(turn.seatLift).toBe(straight.seatLift);
+      expect(turn.lean).toBe(straight.lean);
     }
   });
 

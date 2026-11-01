@@ -329,7 +329,7 @@ export class NoviceMonk {
     this.chest.rotation.x = this.lean + this.riderPose.lean - this.riderPose.pelvisPitch * 0.65;
     this.chest.rotation.z = this.sway * 0.6 + this.riderPose.torsoRoll - this.riderPose.pelvisRoll * 0.7;
     this.head.rotation.x = this.riderPose.headPitch;
-    this.head.rotation.z = -this.riderPose.torsoRoll * 0.45;
+    this.head.rotation.z = this.riderPose.headRoll;
     this.updateLeg(0, -1);
     this.updateLeg(1, 1);
     this.updateArm(0, -1);

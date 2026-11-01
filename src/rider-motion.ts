@@ -5,6 +5,8 @@ export interface RiderStrideState {
   /** Effective mixer weights, including the current gait crossfade. */
   walkWeight: number;
   runWeight: number;
+  /** Signed local roll shared by the mount and rider, after steering has eased. */
+  bank?: number;
 }
 
 export interface RiderPose {
@@ -18,6 +20,7 @@ export interface RiderPose {
   lean: number;
   torsoRoll: number;
   headPitch: number;
+  headRoll: number;
   clothSway: number;
 }
 
@@ -44,7 +47,7 @@ export function sampleRiderMotion(state: RiderStrideState): RiderPose {
   walkWeight /= total;
   runWeight /= total;
 
-  const walk: RiderPose = {
+  const walk: Omit<RiderPose, 'headRoll'> = {
     seatLift: 0.006 + 0.006 * Math.cos(w * 2),
     seatForward: 0.007 * Math.sin(w * 2 - 0.25),
     pelvisPitch: 0.018 * Math.sin(w * 2 - 0.3),
@@ -56,7 +59,7 @@ export function sampleRiderMotion(state: RiderStrideState): RiderPose {
   };
   const gallopRock = Math.sin(r - tau * 0.10);
   const gallopLean = 0.055 * Math.sin(r - tau * 0.12);
-  const run: RiderPose = {
+  const run: Omit<RiderPose, 'headRoll'> = {
     seatLift: 0.05 + 0.025 * Math.cos(r - tau * 0.40),
     seatForward: 0.018 + 0.016 * Math.sin(r - tau * 0.16),
     pelvisPitch: 0.045 * gallopRock,
@@ -67,8 +70,13 @@ export function sampleRiderMotion(state: RiderStrideState): RiderPose {
     clothSway: 0.025 * Math.sin(r - 0.65)
   };
   const result = {} as RiderPose;
-  for (const key of Object.keys(walk) as (keyof RiderPose)[]) {
+  for (const key of Object.keys(walk) as (keyof typeof walk)[]) {
     result[key] = (walk[key] * walkWeight + run[key] * runWeight) || 0;
   }
+  // The shared frame already banks the pelvis. Let the shoulders commit a
+  // little farther into the corner and keep the head closer to level.
+  const bank = Number.isFinite(state.bank) ? state.bank! : 0;
+  result.headRoll = (-0.45 * result.torsoRoll - 0.5 * bank) || 0;
+  result.torsoRoll += 0.12 * bank;
   return result;
 }

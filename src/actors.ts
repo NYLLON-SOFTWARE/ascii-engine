@@ -5,8 +5,9 @@ import type { WorldDocument } from './types';
 import { terrainHeight } from './world';
 import { NoviceMonk } from './monk';
 import { prepareHorseClips, HORSE_WALK_RATE, HORSE_GALLOP_RATE } from './horse-animation';
-import { bakeHorseLimbMotion, createHorseHoofConstraint } from './horse-limbs';
+import { bakeHorseLimbMotion, createHorseHoofConstraint, createHorseTurnPose } from './horse-limbs';
 import { sampleRiderMotion } from './rider-motion';
+import { approachBank } from './mounted-steering';
 
 type Motion = 'idle' | 'walk' | 'run' | 'ride';
 interface Rig {
@@ -81,6 +82,9 @@ export class Actors {
   private readonly moon = new T.DirectionalLight(0xcad8ff, 2);
   private readonly torch = new T.PointLight(0xffcc88, 8, 9);
   private readonly tack = new T.Group();
+  private readonly turnFrame = new T.Group();
+  private turnPose?: ReturnType<typeof createHorseTurnPose>;
+  private bank = 0;
   private saddleBone?: T.Object3D;
   private riderHip?: T.Object3D;
   private lastMounted?: boolean;
@@ -89,6 +93,7 @@ export class Actors {
   private readonly hipPosition = new T.Vector3();
 
   constructor(atlas: T.Texture) {
+    this.group.add(this.turnFrame);
     this.scene.add(this.group, new T.HemisphereLight(0xe2e9ff, 0x848c84, 1.05), this.moon, this.torch);
     this.moon.position.set(-4, 8, 3);
     const rim = new T.DirectionalLight(0xc6d6f4, 0.9);
@@ -129,7 +134,8 @@ export class Actors {
       saddle.scale.set(0.36, 0.085, 0.31);
       this.tack.add(saddle);
       this.horse.root.add(this.tack);
-      this.group.add(this.monk.root, this.horse.root);
+      this.turnFrame.add(this.monk.root, this.horse.root);
+      this.turnPose = createHorseTurnPose(horse, this.turnFrame);
       this.clipsInfo.monk = ['Idle', 'Walk', 'Run', 'Seated'];
       this.clipsInfo.horse = horse.animations.map(c => c.name);
       this.loaded = true;
@@ -168,30 +174,34 @@ export class Actors {
     quad.quaternion.copy(worldCamera.quaternion);
   }
 
-  render(renderer: T.WebGLRenderer, camera: T.Camera, world: WorldDocument, dt: number, moving: boolean, fast: boolean) {
+  render(renderer: T.WebGLRenderer, camera: T.Camera, world: WorldDocument, dt: number, moving: boolean, fast: boolean, turnBank = 0) {
     if (!this.monk || !this.horse) return;
     const player = world.player;
     const locomotion = moving ? (fast ? 'run' : 'walk') : 'idle';
-    const immediateTransition = dt === 0 && this.lastMounted !== player.mounted;
+    const mountChanged = this.lastMounted !== player.mounted;
+    const immediateTransition = dt === 0 && mountChanged;
     this.lastMounted = player.mounted;
     // A frozen frame must retain the active stride. Only an explicit mounting
     // change should replace its pose without advancing simulation time.
     if (dt > 0 || immediateTransition) {
+      this.turnPose!.clear();
+      if (mountChanged || !player.mounted) this.bank = 0;
+      if (player.mounted) this.bank = approachBank(this.bank, moving ? turnBank : 0, dt);
       setMotion(this.horse, player.mounted ? locomotion : 'idle', immediateTransition);
       this.horse.mixer.update(dt);
       this.horse.constrainHooves();
+      // Use both actual action phases during a crossfade so the monk stays in stride.
+      const walk = this.horse.actions.walk!, run = this.horse.actions.run!;
+      const rider = player.mounted ? sampleRiderMotion({
+        walkPhase: walk.time / walk.getClip().duration,
+        runPhase: run.time / run.getClip().duration,
+        walkWeight: walk.isRunning() ? walk.getEffectiveWeight() : 0,
+        runWeight: run.isRunning() ? run.getEffectiveWeight() : 0,
+        bank: this.bank
+      }) : undefined;
+      this.monk.update(dt, player.mounted ? 'ride' : locomotion, immediateTransition, rider);
+      this.turnPose!.apply(this.bank);
     }
-    // Sample the horse after its mixer advances, including the current action
-    // fade weights. The rider shares that stride instead of running a second
-    // oscillator that could drift or keep bouncing after the horse stops.
-    const walk = this.horse.actions.walk!, run = this.horse.actions.run!;
-    const rider = player.mounted ? sampleRiderMotion({
-      walkPhase: walk.time / walk.getClip().duration,
-      runPhase: run.time / run.getClip().duration,
-      walkWeight: walk.isRunning() ? walk.getEffectiveWeight() : 0,
-      runWeight: run.isRunning() ? run.getEffectiveWeight() : 0
-    }) : undefined;
-    this.monk.update(dt, player.mounted ? 'ride' : locomotion, immediateTransition, rider);
     this.placeRider(player.mounted);
     this.moon.intensity = 1.1 + world.lighting.moon * 2.7;
     this.torch.intensity = player.torch ? 8 : 0;
@@ -220,6 +230,8 @@ export class Actors {
   }
 
   resetPose(time: number, mounted: boolean) {
+    this.turnPose?.clear();
+    this.bank = 0;
     this.monk?.reset(time, mounted ? 'ride' : 'idle');
     this.lastMounted = mounted;
     for (const rig of [this.horse]) {

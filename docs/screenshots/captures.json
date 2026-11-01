@@ -240,6 +240,27 @@
         "cameraSpan": 8.5,
         "riderMotion": "horse action phases and blend weights"
       }
+    },
+    {
+      "file": "mounted-turns.gif",
+      "description": "Mounted keyboard turns at a walk, then alternating banks at a gallop and a return to level.",
+      "captured": "2026-11-01",
+      "sourceViewport": [1280, 800],
+      "crop": [310, 190, 660, 420],
+      "size": [660, 420],
+      "frames": 102,
+      "fps": 16,
+      "durationMs": 6370,
+      "bytes": 9519435,
+      "settings": {
+        "cameraSpan": 9,
+        "start": [0, -80],
+        "wind": 0,
+        "walkSpeed": 1.1,
+        "gallopSpeed": 8,
+        "camera": "follows the horse",
+        "input": "WASD and Shift"
+      }
     }
   ]
 }

@@ -44,3 +44,13 @@ The novice's mounted pose uses the actual horse animation phases and blend weigh
 The pelvis remains aligned to the animated saddle with explicit relative offsets. Hand and foot targets compensate for those offsets and pelvis/chest rotation; the elbows and knees bend to accommodate the movement. This keeps the monk from moving as one rigid figure. The [Walker et al. 2016 galloping study](https://pubmed.ncbi.nlm.nih.gov/27622974/) informed that relationship: riders' feet followed the horse while pelvic motion differed by direction. The novice's pose angles and movement amplitudes are artistic choices fitted to this model.
 
 The rider sampler has no separate animation clock. It uses the same gait crossfade as the horse, preserves a frozen frame, and clears its offsets on dismount or a reference reset. Tests check its motion against the actual FBX saddle, along with stable hand/foot targets and the pose lifecycle.
+
+## Turning under saddle
+
+[Brocklehurst, Weller & Pfau](https://pubmed.ncbi.nlm.nih.gov/24360754/) measured horses on circles at trot and canter. Speed and circle radius were useful predictors of inward lean, with variation between horses. Here the input is **actual travel speed × signed turning rate**, the lateral acceleration on a circular path. The game caps and eases the lean for readability at glyph scale; the chosen angles are animation settings, not figures taken from the study.
+
+WASD selects a heading. The horse travels along the arc toward it, with a wider turning radius at a gallop. Horse, saddle and monk tilt together around the outside hoof line. The monk leans his shoulders a little farther in and counter-rotates his head to steady his gaze. This layers over the usual forward lean and seat movement on each stride.
+
+Rolling a rigid model lifts the outside feet. For each banked pose, the renderer keeps the original gait's planted hoof positions and orientations, solves the connecting leg joints, and lets swinging feet follow more of the tilt as they rise. This preserves that frame's contact; it does not simulate hooves gripping the ground over the entire turn. The correction runs only while banked, and is cleared before the mixer samples the next stride.
+
+In the [keyboard capture](screenshots/mounted-turns.gif), alternating turns reached about **7.5° at a walk** and **17.6° at a gallop**. Browser checks also exercised a full reversal at speed, held a banked pose while paused, and verified a level pose after dismounting and remounting.

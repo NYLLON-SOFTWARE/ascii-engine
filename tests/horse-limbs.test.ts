@@ -3,7 +3,7 @@ import * as T from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { describe, expect, it } from 'vitest';
 import { prepareHorseClips } from '../src/horse-animation';
-import { bakeHorseLimbMotion, createHorseHoofConstraint } from '../src/horse-limbs';
+import { bakeHorseLimbMotion, createHorseHoofConstraint, createHorseTurnPose } from '../src/horse-limbs';
 
 function horse() {
   const bytes = readFileSync(new URL('../public/models/horse.fbx', import.meta.url));
@@ -40,6 +40,41 @@ const names = (key: string) => {
 };
 
 describe('connected horse limbs', () => {
+  it('keeps stance hooves grounded and attached through both banks without altering the straight gait', () => {
+    const model = horse(), frame = new T.Group(), heading = new T.Group();
+    heading.add(frame);
+    frame.add(model);
+    const turn = createHorseTurnPose(model, frame), attach = createHorseHoofConstraint(model);
+    const { walk, run } = prepareHorseClips(model.animations);
+    const clips = [walk, run].map(clip => bakeHorseLimbMotion(model, clip));
+    let planted = 0, worstPlant = 0, worstGap = 0;
+    for (const [gait, clip] of clips.entries()) {
+      for (let i = 0; i < 64; i++) {
+        heading.rotation.y = -Math.PI + i / 10;
+        pose(model, clip, (i + 0.13) / 64 * clip.duration);
+        attach();
+        const feet = keys.map(key => point(model, names(key).foot));
+        const rotations = keys.map(key => model.getObjectByName(names(key).foot)!.getWorldQuaternion(new T.Quaternion()).normalize());
+        for (const sign of [-1, 1]) {
+          turn.apply(sign * (gait === 0 ? 0.15 : Math.PI / 10));
+          for (const [index, key] of keys.entries()) {
+            const n = names(key), foot = point(model, n.foot);
+            worstGap = Math.max(worstGap, foot.distanceTo(point(model, n.tip)));
+            if (feet[index].y < 0.03) {
+              planted++;
+              worstPlant = Math.max(worstPlant, foot.distanceTo(feet[index]));
+              expect(model.getObjectByName(n.foot)!.getWorldQuaternion(new T.Quaternion()).normalize().angleTo(rotations[index])).toBeLessThan(1e-5);
+            }
+          }
+          turn.clear();
+          keys.forEach((key, j) => expect(point(model, names(key).foot).distanceTo(feet[j])).toBeLessThan(1e-7));
+        }
+      }
+    }
+    expect(planted).toBeGreaterThan(250);
+    expect(worstGap).toBeLessThan(1e-6);
+    expect(worstPlant).toBeLessThan(0.003);
+  });
   it('rotates each proximal leg and follows each hoof with a connected chain', () => {
     const model = horse();
     const { walk } = prepareHorseClips(model.animations);

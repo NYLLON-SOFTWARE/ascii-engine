@@ -36,3 +36,11 @@ Tests load the actual FBX and inspect the deforming skeleton, rather than checki
 At game scale, the corrected walk retains at least two grounded hooves throughout the sampled cycle. Its stance retreat is approximately 1.04–1.11 m/s against 1.1 m/s forward motion, leaving about 0–4 cm of planting drift per stance. The body is lowered by a stable 7.9 cm while walking so the short foreleg chains can reach the full hoof path; this avoids shortening the stride or introducing an extra bounce.
 
 Side-on captures of the underlying mesh were inspected before and after the repair. In-browser checks also cover the final glyph rendering, mounted movement, walking/galloping transitions, stopping, pause preservation and repeated mounting/dismounting. The [README animation](screenshots/horse-gallop.gif) is recorded gameplay using keyboard input.
+
+## Rider response
+
+The novice's mounted pose uses the actual horse animation phases and blend weights. Galloping adds a modest forward lean, pelvic rocking, a 2.5–7.5 cm rise relative to the saddle, and partial head stabilization. The rise is timed against the bundled saddle trajectory to soften its vertical movement. Walking uses a smaller sway and seat movement.
+
+The pelvis remains aligned to the animated saddle with explicit relative offsets. Hand and foot targets compensate for those offsets and pelvis/chest rotation; the elbows and knees bend to accommodate the movement. This keeps the monk from moving as one rigid figure. The [Walker et al. 2016 galloping study](https://pubmed.ncbi.nlm.nih.gov/27622974/) informed that relationship: riders' feet followed the horse while pelvic motion differed by direction. The novice's pose angles and movement amplitudes are artistic choices fitted to this model.
+
+The rider sampler has no separate animation clock. It uses the same gait crossfade as the horse, preserves a frozen frame, and clears its offsets on dismount or a reference reset. Tests check its motion against the actual FBX saddle, along with stable hand/foot targets and the pose lifecycle.

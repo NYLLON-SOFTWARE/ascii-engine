@@ -211,7 +211,7 @@
     },
     {
       "file": "horse-gallop.gif",
-      "description": "Actual keyboard riding with connected upper/lower leg motion: idle, four-beat walk, Shift-gallop, and stop. Camera follows the rider.",
+      "description": "Actual keyboard riding: idle, four-beat walk, Shift-gallop, and stop. The novice leans and absorbs each stride through his hips, knees and elbows.",
       "captured": "2026-11-01",
       "sourceViewport": [
         1280,
@@ -230,14 +230,15 @@
       "frames": 100,
       "fps": 16,
       "durationMs": 6250,
-      "bytes": 9272389,
+      "bytes": 9316749,
       "settings": {
         "wind": 0,
         "walkSpeed": 1.1,
         "gallopSpeed": 8,
         "walkPlaybackRate": 1.4,
         "gallopPlaybackRate": 1.65,
-        "cameraSpan": 8.5
+        "cameraSpan": 8.5,
+        "riderMotion": "horse action phases and blend weights"
       }
     }
   ]

@@ -6,6 +6,7 @@ import { terrainHeight } from './world';
 import { NoviceMonk } from './monk';
 import { prepareHorseClips, HORSE_WALK_RATE, HORSE_GALLOP_RATE } from './horse-animation';
 import { bakeHorseLimbMotion, createHorseHoofConstraint } from './horse-limbs';
+import { sampleRiderMotion } from './rider-motion';
 
 type Motion = 'idle' | 'walk' | 'run' | 'ride';
 interface Rig {
@@ -150,7 +151,8 @@ export class Actors {
     monk.root.updateWorldMatrix(true, true);
     monk.root.worldToLocal(this.riderHip!.getWorldPosition(this.hipPosition));
     monk.root.position.copy(this.saddlePosition).sub(this.hipPosition);
-    monk.root.position.y += 0.085;
+    monk.root.position.y += 0.085 + monk.seatOffset.lift;
+    monk.root.position.z += monk.seatOffset.forward;
   }
 
   private capture(renderer: T.WebGLRenderer, worldCamera: T.Camera, quad: typeof this.quad,
@@ -171,7 +173,6 @@ export class Actors {
     const player = world.player;
     const locomotion = moving ? (fast ? 'run' : 'walk') : 'idle';
     const immediateTransition = dt === 0 && this.lastMounted !== player.mounted;
-    this.monk.update(dt, player.mounted ? 'ride' : locomotion, immediateTransition);
     this.lastMounted = player.mounted;
     // A frozen frame must retain the active stride. Only an explicit mounting
     // change should replace its pose without advancing simulation time.
@@ -180,6 +181,17 @@ export class Actors {
       this.horse.mixer.update(dt);
       this.horse.constrainHooves();
     }
+    // Sample the horse after its mixer advances, including the current action
+    // fade weights. The rider shares that stride instead of running a second
+    // oscillator that could drift or keep bouncing after the horse stops.
+    const walk = this.horse.actions.walk!, run = this.horse.actions.run!;
+    const rider = player.mounted ? sampleRiderMotion({
+      walkPhase: walk.time / walk.getClip().duration,
+      runPhase: run.time / run.getClip().duration,
+      walkWeight: walk.isRunning() ? walk.getEffectiveWeight() : 0,
+      runWeight: run.isRunning() ? run.getEffectiveWeight() : 0
+    }) : undefined;
+    this.monk.update(dt, player.mounted ? 'ride' : locomotion, immediateTransition, rider);
     this.placeRider(player.mounted);
     this.moon.intensity = 1.1 + world.lighting.moon * 2.7;
     this.torch.intensity = player.torch ? 8 : 0;

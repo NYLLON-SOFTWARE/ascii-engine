@@ -1,5 +1,6 @@
 import * as T from 'three';
 import { sampleMonkGait, type MonkMotion } from './monk-gait';
+import { sampleRiderMotion, type RiderPose } from './rider-motion';
 
 const hipHeight = 0.88;
 const legLength = 0.46;
@@ -84,6 +85,7 @@ export class NoviceMonk {
   readonly root = new T.Group();
   readonly hips = new T.Group();
   readonly chest = new T.Group();
+  readonly head = new T.Group();
   private readonly skin = cloth(0xd4b18a);
   private readonly robe = cloth(0xa08f74);
   private readonly robeShade = cloth(0x91816a);
@@ -103,6 +105,7 @@ export class NoviceMonk {
   private bob = 0;
   private lean = 0;
   private sway = 0;
+  private riderPose = sampleRiderMotion({ walkPhase: 0, runPhase: 0, walkWeight: 0, runWeight: 0 });
   private feet = [{ forward: 0, lift: 0 }, { forward: 0, lift: 0 }];
 
   constructor() {
@@ -116,7 +119,8 @@ export class NoviceMonk {
     strip(this.chest, this.robeShade, [[0.105, 0.45, 0.1], [-0.02, 0.27, 0.167]], 0.025);
     const neck = mesh(new T.CylinderGeometry(0.065, 0.075, 0.12, 12), this.skin, this.chest);
     neck.position.y = 0.485;
-    const head = new T.Group();
+    const head = this.head;
+    head.name = 'Monk head';
     head.position.set(0, 0.70, 0);
     this.chest.add(head);
     oval(head, this.skin, [0.137, 0.163, 0.128], [0, 0, 0]);
@@ -140,12 +144,14 @@ export class NoviceMonk {
       const sleeve = this.makeSleeve();
       mesh(sleeve, this.robe, this.chest);
       const hand = new T.Group();
+      hand.name = side < 0 ? 'Monk left hand' : 'Monk right hand';
       this.chest.add(hand);
       oval(hand, this.skin, [0.042, 0.067, 0.038], [0, -0.035, 0]);
       this.arms.push({ geometry: sleeve, end: hand });
       const thigh = mesh(new T.CylinderGeometry(0.09, 0.075, 1, 12), this.trousers, this.hips);
       const shin = mesh(new T.CylinderGeometry(0.074, 0.05, 1, 12), this.trousers, this.hips);
       const foot = new T.Group();
+      foot.name = side < 0 ? 'Monk left foot' : 'Monk right foot';
       this.hips.add(foot);
       const sole = mesh(new T.BoxGeometry(0.13, 0.03, 0.255), this.leather, foot);
       sole.position.set(0, -0.043, 0.055);
@@ -209,7 +215,7 @@ export class NoviceMonk {
           const y = -0.47 * drop + hem * 0.035 * Math.cos(angle) ** 2 + this.riding * hem * 0.06;
           const z = Math.cos(angle) * (0.15 + drop * 0.055 + pleat) +
             this.feet[index].forward * hem * 0.58 + this.riding * hem * 0.24 +
-            this.sway * hem * panel.side;
+            (this.sway + this.riderPose.clothSway) * hem * panel.side;
           attribute.setXYZ(row * 21 + col, x, y, z);
         }
       }
@@ -217,7 +223,9 @@ export class NoviceMonk {
       panel.geometry.computeVertexNormals();
     });
     this.patch.position.set(-0.17, -0.31, 0.175 + this.feet[0].forward * 0.25 + this.riding * 0.1);
-    this.sashEnds.forEach((end, i) => { end.rotation.x = this.sway * 5 + Math.sin(this.time * 2 + i) * 0.035; });
+    this.sashEnds.forEach((end, i) => {
+      end.rotation.x = (this.sway + this.riderPose.clothSway) * 5 + Math.sin(this.time * 2 + i) * 0.035;
+    });
   }
 
   private updateLeg(index: number, side: number) {
@@ -228,6 +236,11 @@ export class NoviceMonk {
       -hipHeight - this.bob + 0.06 + this.feet[index].lift + this.riding * 0.09,
       this.feet[index].forward * (1 - this.riding) + this.riding * 0.16
     );
+    // Riding targets stay beside the saddle while the pelvis rises and rocks.
+    // The knees absorb the displacement instead of lifting the sandals with it.
+    foot.y -= this.riderPose.seatLift;
+    foot.z -= this.riderPose.seatForward;
+    foot.applyQuaternion(this.hips.quaternion.clone().invert());
     const direction = foot.clone().sub(hip);
     const distance = Math.min(direction.length(), legLength * 2 - 0.001);
     direction.normalize();
@@ -248,6 +261,25 @@ export class NoviceMonk {
     const shoulder = new T.Vector3(side * 0.225, 0.41, 0);
     const elbow = shoulder.clone().add(new T.Vector3(side * 0.045, -Math.cos(angle) * 0.265, Math.sin(angle) * 0.265));
     const wrist = elbow.clone().add(new T.Vector3(-side * this.riding * 0.09, -Math.cos(elbowAngle) * 0.22, Math.sin(elbowAngle) * 0.22));
+    if (this.riding > 0) {
+      // Hands reach toward the horse's neck in saddle space. Soft elbows let
+      // the chest lean over them without making both arms pump with the torso.
+      const ridingWrist = new T.Vector3(side * 0.16,
+        0.19 - this.riderPose.seatLift, 0.37 - this.riderPose.seatForward)
+        .applyQuaternion(this.hips.quaternion.clone().invert())
+        .applyQuaternion(this.chest.quaternion.clone().invert());
+      const direction = ridingWrist.clone().sub(shoulder);
+      const distance = T.MathUtils.clamp(direction.length(), 0.05, 0.484);
+      direction.normalize();
+      ridingWrist.copy(shoulder).addScaledVector(direction, distance);
+      const pole = new T.Vector3(side * 0.5, -1, -0.3);
+      pole.addScaledVector(direction, -pole.dot(direction)).normalize();
+      const along = (0.265 ** 2 - 0.22 ** 2 + distance ** 2) / (2 * distance);
+      const bend = Math.sqrt(Math.max(0, 0.265 ** 2 - along ** 2));
+      const ridingElbow = shoulder.clone().addScaledVector(direction, along).addScaledVector(pole, bend);
+      wrist.lerp(ridingWrist, this.riding);
+      elbow.lerp(ridingElbow, this.riding);
+    }
     // One continuous cloth surface avoids the segmented, armored silhouette
     // that separate capped cylinders give the shoulder and elbow.
     const centers = [shoulder, shoulder.clone().lerp(elbow, 0.5), elbow, elbow.clone().lerp(wrist, 0.55), wrist];
@@ -269,13 +301,20 @@ export class NoviceMonk {
     arm.end.rotation.x = -elbowAngle;
   }
 
-  update(dt: number, motion: MonkMotion, immediate = false) {
+  update(dt: number, motion: MonkMotion, immediate = false, riderPose?: RiderPose) {
     if (dt === 0 && !immediate) return;
     this.time += dt;
     const gait = sampleMonkGait(this.time, motion);
     const blend = immediate ? 1 : 1 - Math.exp(-dt * 18);
     const mix = (current: number, target: number) => T.MathUtils.lerp(current, target, blend);
     this.riding = mix(this.riding, motion === 'ride' ? 1 : 0);
+    const ridingTarget = motion === 'ride' && riderPose
+      ? riderPose : sampleRiderMotion({ walkPhase: 0, runPhase: 0, walkWeight: 0, runWeight: 0 });
+    for (const key of Object.keys(this.riderPose) as (keyof RiderPose)[]) {
+      // Action weights already blend gait changes. Avoid a second timer or
+      // smoothing the stride out of phase with the horse's actual animation.
+      this.riderPose[key] = ridingTarget[key] * this.riding;
+    }
     this.stride = mix(this.stride, motion === 'run' ? 1 : 0);
     this.armSwing = mix(this.armSwing, gait.armSwing);
     this.bob = mix(this.bob, gait.bob);
@@ -286,8 +325,11 @@ export class NoviceMonk {
       this.feet[index].lift = mix(this.feet[index].lift, foot.lift);
     });
     this.hips.position.y = hipHeight + this.bob;
-    this.chest.rotation.x = this.lean;
-    this.chest.rotation.z = this.sway * 0.6;
+    this.hips.rotation.set(this.riderPose.pelvisPitch, 0, this.riderPose.pelvisRoll);
+    this.chest.rotation.x = this.lean + this.riderPose.lean - this.riderPose.pelvisPitch * 0.65;
+    this.chest.rotation.z = this.sway * 0.6 + this.riderPose.torsoRoll - this.riderPose.pelvisRoll * 0.7;
+    this.head.rotation.x = this.riderPose.headPitch;
+    this.head.rotation.z = -this.riderPose.torsoRoll * 0.45;
     this.updateLeg(0, -1);
     this.updateLeg(1, 1);
     this.updateArm(0, -1);
@@ -299,4 +341,6 @@ export class NoviceMonk {
     this.time = time;
     this.update(0, motion, true);
   }
+
+  get seatOffset() { return { lift: this.riderPose.seatLift, forward: this.riderPose.seatForward }; }
 }

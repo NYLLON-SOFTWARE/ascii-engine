@@ -1,6 +1,7 @@
 import * as T from 'three';
 import { describe, expect, it } from 'vitest';
 import { NoviceMonk } from '../src/monk';
+import { sampleRiderMotion } from '../src/rider-motion';
 
 function pose(monk: NoviceMonk) {
   const parts: number[][] = [];
@@ -53,5 +54,59 @@ describe('novice pose lifecycle', () => {
     expect(pose(monk)).toEqual(pose(reference));
     monk.update(0, 'idle', true);
     expect(pose(monk)).toEqual(standing);
+  });
+
+  it('absorbs gallop seat motion with its limbs while keeping hands and feet near the saddle', () => {
+    const monk = new NoviceMonk();
+    const targets = ['Monk left hand', 'Monk right hand', 'Monk left foot', 'Monk right foot'];
+    const positions: T.Vector3[][] = [];
+    const heights: number[] = [];
+    for (let i = 0; i < 32; i++) {
+      const rider = sampleRiderMotion({ walkPhase: 0, runPhase: i / 32, walkWeight: 0, runWeight: 1 });
+      monk.update(0, 'ride', true, rider);
+      // The same hip alignment used by Actors.placeRider, with the saddle at 0.
+      monk.root.position.set(0, -monk.hips.position.y + monk.seatOffset.lift, monk.seatOffset.forward);
+      monk.root.updateWorldMatrix(true, true);
+      heights.push(monk.hips.getWorldPosition(new T.Vector3()).y);
+      positions.push(targets.map(name => monk.root.getObjectByName(name)!.getWorldPosition(new T.Vector3())));
+      expect(monk.chest.rotation.x).toBeGreaterThan(0.2);
+    }
+    expect(Math.max(...heights) - Math.min(...heights)).toBeGreaterThan(0.04);
+    for (const sample of positions) {
+      sample.forEach((position, i) => expect(position.distanceTo(positions[0][i])).toBeLessThan(0.005));
+    }
+  });
+
+  it('freezes the complete riding pose and clears it on preset reset or dismount', () => {
+    const monk = new NoviceMonk();
+    const reference = new NoviceMonk();
+    const rider = sampleRiderMotion({ walkPhase: 0, runPhase: 0.4, walkWeight: 0, runWeight: 1 });
+    monk.update(0, 'ride', true, rider);
+    const galloping = pose(monk), seat = { ...monk.seatOffset };
+    monk.update(0, 'ride', false, sampleRiderMotion({ walkPhase: 0, runPhase: 0, walkWeight: 0, runWeight: 0 }));
+    expect(pose(monk)).toEqual(galloping);
+    expect(monk.seatOffset).toEqual(seat);
+    monk.reset(1.2, 'ride');
+    reference.reset(1.2, 'ride');
+    expect(pose(monk)).toEqual(pose(reference));
+    expect(monk.seatOffset).toEqual({ lift: 0, forward: 0 });
+    monk.update(0, 'ride', true, rider);
+    monk.update(0, 'idle', true);
+    reference.update(0, 'idle', true);
+    expect(pose(monk)).toEqual(pose(reference));
+  });
+
+  it('returns to the original walking arm pose after dismounting', () => {
+    const monk = new NoviceMonk(), reference = new NoviceMonk();
+    monk.update(0, 'ride', true, sampleRiderMotion({ walkPhase: 0, runPhase: 0.4, walkWeight: 0, runWeight: 1 }));
+    for (let i = 0; i < 120; i++) {
+      monk.update(1 / 60, 'walk');
+      reference.update(1 / 60, 'walk');
+    }
+    const actual = pose(monk), expected = pose(reference);
+    actual.forEach((part, i) => {
+      const error = Math.max(...part.map((value, j) => Math.abs(value - expected[i][j])));
+      expect(error).toBeLessThan(1e-6);
+    });
   });
 });

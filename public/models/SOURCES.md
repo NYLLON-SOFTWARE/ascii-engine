@@ -34,6 +34,8 @@ The previous prototype used `HumanArmature|Idle`, `HumanArmature|Walking`, and `
 
 Clips: `Armature|Idle`, `Armature|WalkSlow`, `Armature|Walk`, `Armature|Run`, `Armature|Jump`, `Armature|Death`. The horse's head points toward positive Z in its imported rest pose.
 
+The bundled `Walk` clip contains a stationary tail from approximately 1.333 to 2.667 seconds. The runtime clones and trims that tail in `src/horse-animation.ts`, retaining the original FBX. Walking uses the active cycle at 2× playback and 2.2 m/s travel. Galloping uses the complete `Run` cycle at 1.65× playback and 8 m/s. Four independent hoof tracks and the skinned leg bones provide the visible motion.
+
 ## Technical notes
 
 - All five files successfully parsed with Three.js `FBXLoader` on 2026-10-31.

@@ -4,6 +4,7 @@ import fragmentShader from './actor-surface.frag.glsl?raw';
 import type { WorldDocument } from './types';
 import { terrainHeight } from './world';
 import { NoviceMonk } from './monk';
+import { prepareHorseClips, HORSE_WALK_RATE, HORSE_GALLOP_RATE } from './horse-animation';
 
 type Motion = 'idle' | 'walk' | 'run' | 'ride';
 interface Rig {
@@ -42,9 +43,8 @@ function prepareRig(model: T.Group, height: number, palette: T.Color[]): Rig {
   });
   const mixer = new T.AnimationMixer(model);
   const actions: Rig['actions'] = {};
-  for (const [motion, suffix] of [['idle', 'Idle'], ['walk', 'Walking'], ['walk', 'Walk'], ['run', 'Run']] as const) {
-    const clip = model.animations.find(clip => clip.name.endsWith('|' + suffix));
-    if (clip) actions[motion] = mixer.clipAction(clip);
+  for (const [motion, clip] of Object.entries(prepareHorseClips(model.animations))) {
+    actions[motion as Motion] = mixer.clipAction(clip);
   }
   return { root, mixer, actions };
 }
@@ -54,7 +54,11 @@ function setMotion(rig: Rig, motion: Motion, immediate = false) {
   if (!action || (rig.active === action && !immediate)) return;
   const previous = rig.active;
   if (immediate) rig.mixer.stopAllAction();
-  action.reset().setEffectiveWeight(1).setEffectiveTimeScale(1).play();
+  const rate = motion === 'run' ? HORSE_GALLOP_RATE : motion === 'walk' ? HORSE_WALK_RATE : 1;
+  const continuingStride = previous && previous !== rig.actions.idle && action !== rig.actions.idle;
+  const phase = continuingStride ? previous.time / previous.getClip().duration : 0;
+  action.reset().setEffectiveWeight(1).setEffectiveTimeScale(rate).play();
+  if (!immediate && continuingStride) action.time = phase * action.getClip().duration;
   if (previous && previous !== action && !immediate) action.crossFadeFrom(previous, 0.14, false);
   rig.active = action;
 }
@@ -167,8 +171,12 @@ export class Actors {
     const immediateTransition = dt === 0 && this.lastMounted !== player.mounted;
     this.monk.update(dt, player.mounted ? 'ride' : locomotion, immediateTransition);
     this.lastMounted = player.mounted;
-    setMotion(this.horse, player.mounted ? locomotion : 'idle');
-    this.horse.mixer.update(dt);
+    // A frozen frame must retain the active stride. Only an explicit mounting
+    // change should replace its pose without advancing simulation time.
+    if (dt > 0 || immediateTransition) {
+      setMotion(this.horse, player.mounted ? locomotion : 'idle', immediateTransition);
+      this.horse.mixer.update(dt);
+    }
     this.placeRider(player.mounted);
     this.moon.intensity = 1.1 + world.lighting.moon * 2.7;
     this.torch.intensity = player.torch ? 8 : 0;

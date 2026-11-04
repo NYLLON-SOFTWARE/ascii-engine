@@ -166,6 +166,23 @@
   "character": "Procedural novice monk",
   "animations": [
     {
+      "file": "behind-the-monk.webp",
+      "description": "Default play camera following the novice on foot and horseback, F2 overhead editing, and dismounting.",
+      "captured": "2026-11-04",
+      "sourceViewport": [1280, 800],
+      "size": [800, 500],
+      "frames": 127,
+      "fps": 16,
+      "durationMs": 7937,
+      "bytes": 6035676,
+      "settings": {
+        "seed": 82173,
+        "start": [0, 3],
+        "input": "WASD, Shift, E and F2",
+        "camera": "default play and editor views"
+      }
+    },
+    {
       "file": "monk-walk-closeup.gif",
       "description": "On-foot novice walking a closed loop at maximum wheel zoom, with short runs through two corners.",
       "captured": "2026-11-01",

@@ -4,7 +4,7 @@ A playable world made of letters, light, and moving grass. **ASCII Engine** is a
 
 ![Close-up of the robed novice walking a loop through the grass and briefly breaking into a run](docs/screenshots/monk-walk-closeup.gif)
 
-Use the mouse wheel to zoom in on the novice. Each sandal plants as the opposite sleeve swings forward. Walk through the meadow with **WASD**, hold **Shift** to run, and press **E** beside the horse to mount.
+In play, the camera follows just behind the novice. Walk with **WASD**, hold **Shift** to run, and press **E** beside the horse to mount. The camera eases back on horseback. Use the wheel to adjust the distance or press **F2** for the overhead editor.
 
 Built with **Three.js, custom GLSL shaders, Vite, and Web Workers**. Runs locally in a desktop browser. No account, API key, backend, or Blender installation is needed.
 
@@ -13,6 +13,12 @@ Built with **Three.js, custom GLSL shaders, Vite, and Web Workers**. Runs locall
 ## Screenshots
 
 The walking, riding, water and editor animations are captures of the running game. The stills show the wider scene and controls at 1600 × 1000.
+
+### Behind the monk
+
+![The camera follows the monk, pulls back as he mounts and gallops, switches overhead for the editor, and moves closer when he dismounts](docs/screenshots/behind-the-monk.webp)
+
+The camera follows at about 6.6 metres on foot and 10.2 metres on horseback at the default zoom. It eases around turns and leaves room to see the path ahead. The close-up gait recordings use the fixed overhead view to show the steps from the side.
 
 ### A continuous walk and gallop
 
@@ -82,7 +88,7 @@ All runtime artwork and models are bundled. The build currently expects to be se
 ### Playable scene
 
 - A seeded **256 × 256 meter** world with a hand-placed ruin area, scattered trees and rocks, a winding path, flowers, and a river.
-- An orthographic camera pitched approximately **55° downward**, smooth player following, and mouse-wheel zoom.
+- A **45° field-of-view perspective camera** looking about **19° downward** on foot. Mounting raises the viewpoint and increases the following distance. The editor and reference presets use the original **55° orthographic view** with independent zoom.
 - A novice monk with a matte clay-colored robe, crossed linen collar, sash, shaved head, trousers, and sandals. The scene starts on foot with the horse nearby.
 - Walking at **1.75 m/s**, running at **4.3 m/s**, mounted walking at **1.1 m/s**, and galloping at **8 m/s**, with calm idle and distinct locomotion states. Alternating footfalls, opposing arm swings, and split robe panels make each step visible.
 - Mounting within reach of the horse and collision-checked dismount positions. The horse waits at its last position and heading while the novice walks away.
@@ -136,7 +142,7 @@ All runtime artwork and models are bundled. The build currently expects to be se
 
 | Action | Input |
 | --- | --- |
-| Walk / ride | `W A S D` |
+| Walk / ride | `W A S D`, relative to the camera when you choose a direction |
 | Run / gallop | Hold `Shift` |
 | Mount / dismount | `E`, horse hotbar button, or nearby mount prompt |
 | Toggle torch | `T` |
@@ -182,7 +188,7 @@ flowchart LR
 
 The renderer creates a **512 × 512** canvas atlas arranged as **8 × 8** glyph slots. The artwork converter samples the requested image grid, chooses glyph density from luminance, and favors directional marks such as `/`, `\\`, `|`, and `-` near edges. Every cell stores a glyph index, RGB color, alpha, and a unit normal.
 
-Placed assets expand into a shared instanced glyph mesh. Their cell positions derive from the asset pivot and world transform, so the grid stays attached to the object as the camera moves. Cutout fragments participate in depth testing. Normal-based lighting and wind deformation are evaluated in the custom scenery shader.
+Placed assets expand into a shared instanced glyph mesh. Each prop keeps a world-space anchor and a local grid. The shader orients its grid and normals to the active camera. In the chase view, foreground cells fade around the monk’s silhouette when a tree or ruin passes between him and the camera.
 
 ### Actor capture and depth
 
@@ -206,11 +212,15 @@ The rider or combined mounted actor renders into a **512 × 640** color/depth ta
 
 Source depth is unprojected through the capture camera and projected through the world camera into `gl_FragDepth`. The resulting actor surface can overlap correctly with scenery and grass. Color conversion is handled explicitly for these custom materials.
 
+In the perspective view each actor target uses a crop of the main camera’s frustum. The monk and parked horse keep separate projection and depth transforms, so both still line up with the ground when they appear on opposite sides of the screen.
+
 ### Deterministic vegetation
 
 The world is partitioned into **16 m chunks**. A globally indexed **0.10 m lattice**, seeded hashes, terrain/road/river masks, and ordered brush strokes determine each blade. Neighboring chunks share the same coordinate rules, preventing duplicate boundary blades. Grass heights currently range from roughly **0.09–0.26 m**.
 
-Each blade uses nine floats for position, height, angle, phase, color, and flower state. The worker transfers the generated typed-array buffer back to the renderer. Per-chunk generation counters and a world epoch prevent stale asynchronous results from replacing newer edits. Vertex shaders animate wind and nearby-player bending while keeping roots grounded.
+Each blade uses nine floats for position, height, angle, phase, color, and flower state. The worker transfers the generated buffer back to the renderer. A chunk accepts only its latest pending request. Wind and player interaction bend blades at their grounded roots.
+
+In play, individual blades gradually lose height, width, and contrast from roughly **16 to 42 m**. The renderer preloads another **12 m** in every direction so new ground is ready when the horse turns. Distant soil and scenery blend into the night sky, and grass also tapers at the physical map boundary. The overhead editor keeps full blade detail at the brush.
 
 ### ASCII stream
 
@@ -250,9 +260,11 @@ Performance counters need context. `visibleBlades` counts resident vegetation, i
 
 ## Tests and current scope
 
-The **63 unit tests** cover deterministic vegetation, chunk boundaries, erase/restyle behavior, brush coverage, undo/redo, JSON round trips, validation, converter transparency and normals, frozen poses, collision, dismount placement, horse heading, and compatibility with older saves. Monk gait tests check footfalls, planted-foot travel, walking support and running flight. Horse tests load the actual FBX to check contact order, segment lengths, gait transitions, grounded hooves during either bank, and preservation of the source model. Rider tests check gait blending, seat movement against the animated saddle, hand/foot targets, and head and shoulder response in a turn. Steering tests cover curved travel, speed-dependent bank, frame-rate stability, reversals through the angle wrap, and blocked movement.
+The **68 unit tests** cover deterministic vegetation, chunk boundaries, erase/restyle behavior, brush coverage, undo/redo, JSON round trips, validation, converter transparency and normals, frozen poses, collision, dismount placement, horse heading, and compatibility with older saves. Monk gait tests check footfalls, planted-foot travel, walking support and running flight. Horse tests load the actual FBX to check contact order, segment lengths, gait transitions, grounded hooves during either bank, and preservation of the source model. Rider tests check gait blending, seat movement against the animated saddle, hand/foot targets, and head and shoulder response in a turn. Steering tests cover curved travel, speed-dependent bank, frame-rate stability, reversals through the angle wrap, and blocked movement. Camera tests exercise mount easing, camera-relative input, off-centre actor depth, and grass preload coverage.
 
-Browser checks have exercised movement, riding transitions, actor visibility across headings/zoom levels, river editing and undo, reflection controls, and artwork preview. The mounted-turn capture uses real keyboard input; browser checks also cover a galloping U-turn, pausing mid-bank, and dismount/remount without a leftover tilt. A complete automated browser import/export regression suite and the fixed **2304 × 1440** performance acceptance run are still outstanding.
+Browser checks have exercised movement, riding transitions, actor visibility across headings/zoom levels, river editing and undo, reflection controls, and artwork preview. The mounted-turn capture uses real keyboard input; browser checks also cover a galloping U-turn, pausing mid-bank, and dismount/remount without a leftover tilt. The chase-camera check also covers mounting, galloping, dismounting, F2 editing, map/reference transitions and crossing grass chunk boundaries. Removing fully faded preload chunks produced an identical rendered frame. A complete automated browser import/export regression suite is still outstanding.
+
+A 30-second production run on an **Apple M5 Max**, using Chrome 156 with Metal at **2304 × 1440** and device pixel ratio 1, measured **16.7 ms median and 16.7 ms p95** over 1,801 frame intervals after warm-up. The route covered 203 m of walking and riding.
 
 This is an experimental renderer and playable scene, with no stable engine SDK yet. Multiplayer, combat, progression, trading, desktop packaging, and sketch-driven world generation are outside this build. HP, MP, and level displays are decorative. Some visual effects use deliberate approximations, including projected shadows, billboard scenery, shallow terrain, and procedural reflection. Exact visual matching to the inspiration footage has not been certified.
 
@@ -262,6 +274,7 @@ This is an experimental renderer and playable scene, with no stable engine SDK y
 src/
   main.ts                    UI, input, editor, imports and application lifecycle
   renderer.ts                World rendering, glyph atlas, camera and chunk lifecycle
+  chase-camera.ts            Trailing perspective, mounted framing, input and actor frusta
   actors.ts                  Monk/horse coordination, horse FBX animation and capture targets
   horse-animation.ts         Continuous horse clips and coordinated gait/speed settings
   horse-walk.ts              Four-beat contact timing and grounded stance

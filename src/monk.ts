@@ -102,13 +102,16 @@ export class NoviceMonk {
   private stride = 0;
   private riding = 0;
   private armSwing = 0;
+  private armAsymmetry = 0;
   private bob = 0;
   private lean = 0;
   private sway = 0;
   private riderPose = sampleRiderMotion({ walkPhase: 0, runPhase: 0, walkWeight: 0, runWeight: 0 });
   private feet = [{ forward: 0, lift: 0 }, { forward: 0, lift: 0 }];
+  private walkBlend = 0;
+  private walkEntry = this.feet.map(foot => ({ ...foot }));
 
-  constructor() {
+  constructor(public walkSeed = 0) {
     this.root.name = 'Novice monk';
     this.hips.name = 'Monk hips';
     this.root.add(this.hips);
@@ -232,7 +235,7 @@ export class NoviceMonk {
     const leg = this.legs[index];
     const hip = new T.Vector3(side * 0.12, 0, 0);
     const foot = new T.Vector3(
-      side * (0.12 + this.riding * 0.25),
+      side * (0.12 + this.riding * 0.25) - this.hips.position.x * (1 - this.riding),
       -hipHeight - this.bob + 0.06 + this.feet[index].lift + this.riding * 0.09,
       this.feet[index].forward * (1 - this.riding) + this.riding * 0.16
     );
@@ -256,7 +259,8 @@ export class NoviceMonk {
 
   private updateArm(index: number, side: number) {
     const arm = this.arms[index];
-    const angle = -side * this.armSwing * (1 - this.riding) + 0.08 + this.riding * 0.4;
+    const swing = this.armSwing * (1 + side * this.armAsymmetry);
+    const angle = -side * swing * (1 - this.riding) + 0.08 + this.riding * 0.4;
     const elbowAngle = angle + 0.22 + this.stride * 0.24 + this.riding * 0.5;
     const shoulder = new T.Vector3(side * 0.225, 0.41, 0);
     const elbow = shoulder.clone().add(new T.Vector3(side * 0.045, -Math.cos(angle) * 0.265, Math.sin(angle) * 0.265));
@@ -304,7 +308,7 @@ export class NoviceMonk {
   update(dt: number, motion: MonkMotion, immediate = false, riderPose?: RiderPose) {
     if (dt === 0 && !immediate) return;
     this.time += dt;
-    const gait = sampleMonkGait(this.time, motion);
+    const gait = sampleMonkGait(this.time, motion, this.walkSeed);
     const blend = immediate ? 1 : 1 - Math.exp(-dt * 18);
     const mix = (current: number, target: number) => T.MathUtils.lerp(current, target, blend);
     this.riding = mix(this.riding, motion === 'ride' ? 1 : 0);
@@ -317,18 +321,30 @@ export class NoviceMonk {
     }
     this.stride = mix(this.stride, motion === 'run' ? 1 : 0);
     this.armSwing = mix(this.armSwing, gait.armSwing);
+    this.armAsymmetry = mix(this.armAsymmetry, gait.armAsymmetry);
     this.bob = mix(this.bob, gait.bob);
     this.lean = mix(this.lean, gait.lean);
     this.sway = mix(this.sway, gait.clothSway);
-    [gait.left, gait.right].forEach((foot, index) => {
-      this.feet[index].forward = mix(this.feet[index].forward, foot.forward);
-      this.feet[index].lift = mix(this.feet[index].lift, foot.lift);
+    // Blend into walking once. Filtering every walking frame would make a
+    // planted sandal lag behind its footprint, especially at touchdown.
+    if (motion === 'walk' && this.walkBlend === 0) {
+      this.feet.forEach((foot, i) => Object.assign(this.walkEntry[i], foot));
+    }
+    this.walkBlend = motion === 'walk' ? (immediate ? 1 : Math.min(1, this.walkBlend + dt / .15)) : 0;
+    const footBlend = motion === 'walk' ? T.MathUtils.smoothstep(this.walkBlend, 0, 1) : blend;
+    [gait.left, gait.right].forEach((foot, i) => {
+      const from = motion === 'walk' ? this.walkEntry[i] : this.feet[i];
+      this.feet[i].forward = T.MathUtils.lerp(from.forward, foot.forward, footBlend);
+      this.feet[i].lift = T.MathUtils.lerp(from.lift, foot.lift, footBlend);
     });
+    this.hips.position.x = mix(this.hips.position.x, gait.weightShift);
     this.hips.position.y = hipHeight + this.bob;
     this.hips.rotation.set(this.riderPose.pelvisPitch, 0, this.riderPose.pelvisRoll);
     this.chest.rotation.x = this.lean + this.riderPose.lean - this.riderPose.pelvisPitch * 0.65;
+    this.chest.rotation.y = mix(this.chest.rotation.y, gait.shoulderTurn);
     this.chest.rotation.z = this.sway * 0.6 + this.riderPose.torsoRoll - this.riderPose.pelvisRoll * 0.7;
     this.head.rotation.x = this.riderPose.headPitch;
+    this.head.rotation.y = -this.chest.rotation.y * .48;
     this.head.rotation.z = this.riderPose.headRoll;
     this.updateLeg(0, -1);
     this.updateLeg(1, 1);

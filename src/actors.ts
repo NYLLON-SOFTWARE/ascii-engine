@@ -212,6 +212,7 @@ export class Actors {
         runWeight: run.isRunning() ? run.getEffectiveWeight() : 0,
         bank: this.bank
       }) : undefined;
+      this.monk.walkSeed = world.seed;
       this.monk.update(dt, player.mounted ? 'ride' : locomotion, immediateTransition, rider);
       this.turnPose!.apply(this.bank);
     }

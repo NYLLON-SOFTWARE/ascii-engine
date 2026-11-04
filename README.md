@@ -2,7 +2,7 @@
 
 A playable world made of letters, light, and moving grass. **ASCII Engine** is a TypeScript and WebGL2 experiment in rendering interactive scenery and animated 3D characters as glyphs. **Glyph Valley** is the included single-player demo, with a novice monk, a moonlit meadow, ruins, a horse, a trickling ASCII stream, and an in-browser world editor.
 
-![Close-up of the robed novice walking a loop through the grass and briefly breaking into a run](docs/screenshots/monk-walk-closeup.gif)
+![Close-up of the novice shifting his weight between unevenly timed steps, turning off the path and breaking into a short run](docs/screenshots/monk-walk-closeup.gif)
 
 In play, the camera follows just behind the novice. Walk with **WASD**, hold **Shift** to run, and press **E** beside the horse to mount. The camera eases back on horseback. Use the wheel to adjust the distance or press **F2** for the overhead editor.
 
@@ -18,7 +18,7 @@ The walking, riding, water and editor animations are captures of the running gam
 
 ![The camera follows the monk, pulls back as he mounts and gallops, switches overhead for the editor, and moves closer when he dismounts](docs/screenshots/behind-the-monk.webp)
 
-The camera follows at about 6.6 metres on foot and 10.2 metres on horseback at the default zoom. It eases around turns and leaves room to see the path ahead. The close-up gait recordings use the fixed overhead view to show the steps from the side.
+The camera follows at about 6.6 metres on foot and 10.2 metres on horseback at the default zoom. It eases around turns and leaves room to see the path ahead. The mounted gait recordings below use the fixed overhead view to show the hooves from the side.
 
 ### A continuous walk and gallop
 
@@ -194,7 +194,7 @@ Placed assets expand into a shared instanced glyph mesh. Each prop keeps a world
 
 The novice monk is original articulated Three.js geometry built in [src/monk.ts](src/monk.ts). Matte cloth materials, a crossed linen collar, an offset sash, a small robe patch, a shaved head, trousers, and sandals create a simple trainee silhouette. The lower robe is split into two animated panels that follow the legs and widen for riding.
 
-[src/monk-gait.ts](src/monk-gait.ts) samples deterministic foot targets for a **0.72-second walk cycle** and a **0.62-second run cycle**. The planted foot travels backward relative to the body at the player's forward speed. A two-link inverse-kinematics calculation positions each knee between the hip and ankle target. Opposing arms, subtle torso motion, cloth sway, and smooth transitions complete the pose. Idle uses slow breathing; riding brings the legs apart and the hands forward.
+The novice averages one walking step every **0.36 seconds**. The world seed sets each footfall’s timing, reach and clearance. His hips shift toward the supporting leg, his shoulders turn, and one sleeve can swing a little farther than the other. During a straight walk the planted sandal stays at its footprint as the body passes over it. The run uses a **0.62-second cycle**. [Gait sampler](src/monk-gait.ts)
 
 [src/rider-motion.ts](src/rider-motion.ts) drives mounted poses from the horse’s actual walk/run phases and animation blend weights. Walking adds a gentle sway. Galloping brings an approximately **18° forward lean**, **2.5–7.5 cm** of relative seat movement, pelvic rocking, partial head stabilization, and robe motion. The seat rises as the saddle drops to soften its vertical movement. Hands and feet keep targets relative to the saddle while two-link arm and leg solves let the elbows and knees yield. Pausing freezes the entire pose; stopping, dismounting, and reference resets clear the riding offsets.
 
@@ -260,7 +260,7 @@ Performance counters need context. `visibleBlades` counts resident vegetation, i
 
 ## Tests and current scope
 
-The **68 unit tests** cover deterministic vegetation, chunk boundaries, erase/restyle behavior, brush coverage, undo/redo, JSON round trips, validation, converter transparency and normals, frozen poses, collision, dismount placement, horse heading, and compatibility with older saves. Monk gait tests check footfalls, planted-foot travel, walking support and running flight. Horse tests load the actual FBX to check contact order, segment lengths, gait transitions, grounded hooves during either bank, and preservation of the source model. Rider tests check gait blending, seat movement against the animated saddle, hand/foot targets, and head and shoulder response in a turn. Steering tests cover curved travel, speed-dependent bank, frame-rate stability, reversals through the angle wrap, and blocked movement. Camera tests exercise mount easing, camera-relative input, off-centre actor depth, and grass preload coverage.
+The **69 unit tests** cover deterministic vegetation, chunk boundaries, erase/restyle behavior, brush coverage, undo/redo, JSON round trips, validation, converter transparency and normals, frozen poses, collision, dismount placement, horse heading, and compatibility with older saves. Monk gait tests check seeded step variation, rig-level foot contact at 30 and 120 fps, walking support and running flight. Horse tests load the actual FBX to check contact order, segment lengths, gait transitions, grounded hooves during either bank, and preservation of the source model. Rider tests check gait blending, seat movement against the animated saddle, hand/foot targets, and head and shoulder response in a turn. Steering tests cover curved travel, speed-dependent bank, frame-rate stability, reversals through the angle wrap, and blocked movement. Camera tests exercise mount easing, camera-relative input, off-centre actor depth, and grass preload coverage.
 
 Browser checks have exercised movement, riding transitions, actor visibility across headings/zoom levels, river editing and undo, reflection controls, and artwork preview. The mounted-turn capture uses real keyboard input; browser checks also cover a galloping U-turn, pausing mid-bank, and dismount/remount without a leftover tilt. The chase-camera check also covers mounting, galloping, dismounting, F2 editing, map/reference transitions and crossing grass chunk boundaries. Removing fully faded preload chunks produced an identical rendered frame. A complete automated browser import/export regression suite is still outstanding.
 

@@ -6,6 +6,7 @@ import {createWorld,shots,canStand,changeMount,terrainHeight,History,affectedChu
 import {saveWorld,loadWorld,downloadWorld} from './storage';
 import {readImage} from './jobs';
 import {steerMount} from './mounted-steering';
+import {MONK_WALK_SPEED} from './monk-gait';
 import type {WorldDocument,Tool,Stroke,GlyphAsset,V2} from './types';
 const $=<E extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as E;
 document.querySelector('#app')!.innerHTML=`
@@ -195,7 +196,7 @@ function frame(now: number) {
         turnBank = turn.bank;
         engine.follow = true;
       } else {
-        const p = world.player, oldX = p.x, oldZ = p.z, speed = fast ? 4.3 : 1.75;
+        const p = world.player, oldX = p.x, oldZ = p.z, speed = fast ? 4.3 : MONK_WALK_SPEED;
         const nx = p.x + dx * speed * dt, nz = p.z + dz * speed * dt;
         if (canStand(nx, p.z, world, .3)) p.x = nx;
         if (canStand(p.x, nz, world, .3)) p.z = nz;

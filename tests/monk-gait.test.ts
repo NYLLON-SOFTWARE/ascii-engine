@@ -7,25 +7,70 @@ const cycles = [
 ];
 
 describe('novice monk gait', () => {
-  for (const { motion, period, speed } of cycles) {
-    it(`${motion} repeats continuously and alternates feet every half cycle`, () => {
-      for (const time of [0, 0.07, 0.19, 0.31, 0.57]) {
-        const now = sampleMonkGait(time, motion);
-        const next = sampleMonkGait(time + period, motion);
-        const alternate = sampleMonkGait(time + period / 2, motion);
-        expect(next.left.forward).toBeCloseTo(now.left.forward, 10);
-        expect(next.left.lift).toBeCloseTo(now.left.lift, 10);
-        expect(next.bob).toBeCloseTo(now.bob, 10);
-        expect(alternate.left.forward).toBeCloseTo(now.right.forward, 10);
-        expect(alternate.left.lift).toBeCloseTo(now.right.lift, 10);
-        expect(alternate.armSwing).toBeCloseTo(-now.armSwing, 10);
-      }
-      const beforeWrap = sampleMonkGait(period - 0.00001, motion);
-      const afterWrap = sampleMonkGait(0.00001, motion);
-      expect(Math.abs(beforeWrap.left.forward - afterWrap.left.forward)).toBeLessThan(0.001);
-      expect(Math.abs(beforeWrap.left.lift - afterWrap.left.lift)).toBeLessThan(0.001);
-    });
+  it('the run repeats continuously and alternates feet every half cycle', () => {
+    const motion = 'run', period = .62;
+    for (const time of [0, 0.07, 0.19, 0.31, 0.57]) {
+      const now = sampleMonkGait(time, motion);
+      const next = sampleMonkGait(time + period, motion);
+      const alternate = sampleMonkGait(time + period / 2, motion);
+      expect(next.left.forward).toBeCloseTo(now.left.forward, 10);
+      expect(next.left.lift).toBeCloseTo(now.left.lift, 10);
+      expect(next.bob).toBeCloseTo(now.bob, 10);
+      expect(alternate.left.forward).toBeCloseTo(now.right.forward, 10);
+      expect(alternate.left.lift).toBeCloseTo(now.right.lift, 10);
+      expect(alternate.armSwing).toBeCloseTo(-now.armSwing, 10);
+    }
+    const beforeWrap = sampleMonkGait(period - 0.00001, motion);
+    const afterWrap = sampleMonkGait(0.00001, motion);
+    expect(Math.abs(beforeWrap.left.forward - afterWrap.left.forward)).toBeLessThan(0.001);
+    expect(Math.abs(beforeWrap.left.lift - afterWrap.left.lift)).toBeLessThan(0.001);
+  });
 
+  it('varies the walk from step to step while keeping alternating, continuous contacts at a steady travel speed', () => {
+    const hz = 240, dt = 1 / hz;
+    const observe = (seed: number) => {
+      const contacts: { time: number; foot: 'left' | 'right'; lift: number }[] = [];
+      let before = sampleMonkGait(-2, 'walk', seed);
+      let maxSlip = 0, maxReach = 0, maxTravel = 0;
+      const lift = {left: 0, right: 0};
+      for (let frame = 1; frame <= hz * 45; frame++) {
+        const time = -2 + frame * dt;
+        const pose = sampleMonkGait(time, 'walk', seed);
+        if (Math.min(pose.left.lift, pose.right.lift) > 0) throw Error('Both sandals left the ground');
+        for (const side of ['left', 'right'] as const) {
+          const foot = pose[side], last = before[side];
+          maxReach = Math.max(maxReach, Math.hypot(foot.forward, .82 + pose.bob - foot.lift, pose.weightShift));
+          maxTravel = Math.max(maxTravel, Math.abs(foot.forward - last.forward));
+          lift[side] = Math.max(lift[side], foot.lift);
+          if (foot.lift === 0 && last.lift === 0) {
+            maxSlip = Math.max(maxSlip, Math.abs(foot.forward - last.forward + 1.75 * dt));
+          } else if (foot.lift === 0) {
+            contacts.push({time, foot: side, lift: lift[side]});
+            lift[side] = 0;
+          }
+        }
+        before = pose;
+      }
+      expect(maxSlip).toBeLessThan(1e-9);
+      expect(maxReach).toBeLessThan(.919);
+      expect(maxTravel).toBeLessThan(.035);
+      const intervals = contacts.slice(1).map((c, i) => {
+        expect(c.foot).not.toBe(contacts[i].foot);
+        return c.time - contacts[i].time;
+      });
+      const peaks = contacts.slice(1).map(c => c.lift);
+      expect(Math.min(...intervals)).toBeGreaterThan(.26);
+      expect(Math.max(...intervals)).toBeLessThan(.46);
+      expect(Math.max(...intervals) - Math.min(...intervals)).toBeGreaterThan(.055);
+      expect(Math.max(...peaks) - Math.min(...peaks)).toBeGreaterThan(.025);
+      return intervals;
+    };
+    const first = observe(82173);
+    expect(observe(27)).not.toEqual(first);
+    expect(observe(82173)).toEqual(first);
+  });
+
+  for (const { motion, period, speed } of cycles) {
     it(`${motion} holds the stance foot on the ground without world-space sliding`, () => {
       const start = sampleMonkGait(0.04, motion).left;
       const end = sampleMonkGait(0.08, motion).left;

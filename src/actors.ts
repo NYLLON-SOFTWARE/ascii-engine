@@ -8,6 +8,7 @@ import { prepareHorseClips, HORSE_WALK_RATE, HORSE_GALLOP_RATE } from './horse-a
 import { bakeHorseLimbMotion, createHorseHoofConstraint, createHorseTurnPose } from './horse-limbs';
 import { sampleRiderMotion } from './rider-motion';
 import { approachBank } from './mounted-steering';
+import { actorFrame, frameActorCapture } from './chase-camera';
 
 type Motion = 'idle' | 'walk' | 'run' | 'ride';
 interface Rig {
@@ -18,7 +19,7 @@ interface Rig {
   active?: T.AnimationAction;
 }
 const vertexShader = 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
-const captureCenter = new T.Vector3(0, 1.6, 0);
+const captureCenter = new T.Vector3(0, actorFrame.centerY, 0);
 
 function makeTarget(width: number, height: number) {
   return new T.WebGLRenderTarget(width, height, {
@@ -70,6 +71,7 @@ function setMotion(rig: Rig, motion: Motion, immediate = false) {
 export class Actors {
   readonly scene = new T.Scene();
   readonly camera = new T.OrthographicCamera(-2.5, 2.5, 3.2, -3.2, 0.1, 30);
+  private readonly perspectiveCapture = new T.PerspectiveCamera();
   readonly target = makeTarget(512, 640);
   readonly parkedTarget = makeTarget(384, 512);
   readonly group = new T.Group();
@@ -102,15 +104,15 @@ export class Actors {
     this.camera.position.set(0, 10 * 0.819152 + captureCenter.y, 10 * 0.573576);
     this.camera.lookAt(captureCenter);
     this.camera.updateMatrixWorld();
-    const geometry = new T.PlaneGeometry(5, 6.4);
+    const geometry = new T.PlaneGeometry(actorFrame.width, actorFrame.height);
     const makeQuad = (target: T.WebGLRenderTarget) => {
       const material = new T.ShaderMaterial({
         vertexShader, fragmentShader,
         uniforms: {
           uMainVP: { value: new T.Matrix4() }, uGrid: { value: new T.Vector2(128, 176) },
           uColor: { value: target.texture }, uDepth: { value: target.depthTexture },
-          uAtlas: { value: atlas }, uSourceInv: { value: this.camera.projectionMatrixInverse },
-          uSourceWorld: { value: this.camera.matrixWorld }, uActorPosition: { value: new T.Vector3() }
+          uAtlas: { value: atlas }, uSourceInv: { value: new T.Matrix4() },
+          uSourceWorld: { value: new T.Matrix4() }, uActorPosition: { value: new T.Vector3() }
         }
       });
       const quad = new T.Mesh(geometry, material);
@@ -163,12 +165,23 @@ export class Actors {
 
   private capture(renderer: T.WebGLRenderer, worldCamera: T.Camera, quad: typeof this.quad,
                   target: T.WebGLRenderTarget, x: number, z: number, angle: number) {
+    const uniforms = quad.material.uniforms;
+    const origin = uniforms.uActorPosition.value.set(x, terrainHeight(x, z), z);
+    let source: T.Camera = this.camera;
+    if (worldCamera instanceof T.PerspectiveCamera) {
+      quad.visible = frameActorCapture(this.perspectiveCapture, worldCamera, origin);
+      if (!quad.visible) return;
+      source = this.perspectiveCapture;
+    } else {
+      quad.visible = true;
+    }
     this.group.rotation.y = angle;
     renderer.setRenderTarget(target);
     renderer.clear();
-    renderer.render(this.scene, this.camera);
-    const uniforms = quad.material.uniforms;
-    uniforms.uActorPosition.value.set(x, terrainHeight(x, z), z);
+    renderer.render(this.scene, source);
+    // The next capture can use another frustum before either quad is drawn.
+    uniforms.uSourceInv.value.copy(source.projectionMatrixInverse);
+    uniforms.uSourceWorld.value.copy(source.matrixWorld);
     uniforms.uMainVP.value.multiplyMatrices(worldCamera.projectionMatrix, worldCamera.matrixWorldInverse);
     quad.position.copy(uniforms.uActorPosition.value).add(captureCenter);
     quad.quaternion.copy(worldCamera.quaternion);
@@ -199,6 +212,7 @@ export class Actors {
         runWeight: run.isRunning() ? run.getEffectiveWeight() : 0,
         bank: this.bank
       }) : undefined;
+      this.monk.walkSeed = world.seed;
       this.monk.update(dt, player.mounted ? 'ride' : locomotion, immediateTransition, rider);
       this.turnPose!.apply(this.bank);
     }

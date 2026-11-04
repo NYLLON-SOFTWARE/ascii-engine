@@ -6,6 +6,7 @@ import {createWorld,shots,canStand,changeMount,terrainHeight,History,affectedChu
 import {saveWorld,loadWorld,downloadWorld} from './storage';
 import {readImage} from './jobs';
 import {steerMount} from './mounted-steering';
+import {MONK_WALK_SPEED} from './monk-gait';
 import type {WorldDocument,Tool,Stroke,GlyphAsset,V2} from './types';
 const $=<E extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as E;
 document.querySelector('#app')!.innerHTML=`
@@ -15,8 +16,8 @@ document.querySelector('#app')!.innerHTML=`
  <section class="hud panel minimap"><header><b>Glyph Valley</b><span>N</span></header><canvas id="minimap" aria-label="Minimap"></canvas><footer><span id="coordinates">X: 0 Y: 0</span><span>Players: 1</span></footer></section>
  <section class="hud panel log"><div class="tabs"><span>General</span><span>Journey</span><span>System</span></div><div class="messages" id="messages"></div><footer>Local world · nothing leaves your browser</footer></section>
  <section class="hud panel hotbar"><div class="xp">LV 1 · GLYPH VALLEY</div><div class="slots"><button data-action="torch" title="Torch (T)">1<span>☀</span></button><button data-action="mount" title="Mount / dismount (E)">2<span>♞</span></button><button data-action="map" title="Map (M)">3<span>⌘</span></button><button data-action="editor" title="Editor (F2)">4<span>✎</span></button><button data-action="save" title="Save world">5<span>◇</span></button><button data-action="compare" title="Compare reference (F3)">6<span>▥</span></button><button data-action="help" title="Controls">7<span>?</span></button><button data-action="opening" title="Return to the ruins">8<span>⌂</span></button><button data-action="pause" title="Pause time">9<span>Ⅱ</span></button><button data-action="capture" title="Save scene screenshot">0<span>▣</span></button></div></section>
- <div class="hud toolbar"><button id="compare-toggle">reference · F3</button><button id="editor-toggle">editor · F2</button><button id="help-toggle">?</button></div>
- <div class="hint">WASD move · shift run · E mount · wheel zoom · M map · T torch</div>
+ <div class="hud toolbar"><button id="view-toggle" type="button" aria-keyshortcuts="V">Overhead · V</button><button id="compare-toggle">reference · F3</button><button id="editor-toggle">editor · F2</button><button id="help-toggle">?</button></div>
+ <div class="hint">WASD move · shift run · E mount · wheel zoom · V view · M map · T torch</div>
  <aside class="hud panel" id="editor" hidden><header><b>Developer mode</b><button id="editor-close">exit (F2)</button></header>
  <div class="row"><span>tool:</span><button data-tool="select" class="active">objects</button><button data-tool="grass">brush (B)</button><button data-tool="flowers">flowers</button><button data-tool="river">river</button></div>
  <div class="row"><select id="asset-select"><option value="tree">willow tree</option><option value="rock">river rock</option><option value="ruin">ruin fragment</option><option value="flowers">wildflowers</option></select><button id="place-prop">place</button><button id="import-art">import art</button></div>
@@ -34,29 +35,74 @@ document.querySelector('#app')!.innerHTML=`
  <div id="reference-layer"><img id="reference-image" alt="Video reference frame"><span class="compare-label" id="reference-caption"></span></div>
  <section class="hud panel" id="comparison" hidden><header><span>REFERENCE COMPARISON</span><button id="compare-close">close</button></header><div class="row"><select id="ref-select">${shots.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select><button id="apply-shot">reset shot</button><button id="freeze">freeze time</button></div><div class="row"><select id="compare-mode"><option value="off">scene only</option><option value="side">side by side</option><option value="overlay">overlay</option></select><label>opacity <input id="ref-opacity" type="range" min="0" max="1" step=".05" value=".5"></label></div><div class="row"><button id="capture">save scene PNG</button><button id="measure">measure 30s</button><span id="measurement"></span></div><div class="subtle">Fixed seed & shot presets · source 2304 × 1440 · F3 to close</div></section>
  <dialog id="art-dialog"><header><h2>Artwork → glyph asset</h2><button id="art-close">close</button></header><label>PNG artwork <input id="art-file" type="file" accept="image/png"></label><label>Normal map (optional) <input id="normal-file" type="file" accept="image/png"></label><div class="row"><label>Name <input id="art-name" type="text" value="New asset"></label><label>height (m) <input id="art-height" type="number" min=".2" max="20" step=".1" value="3"></label></div><div class="row"><label>grid <input id="art-grid" type="range" min="12" max="128" value="48"><output id="art-grid-label">48</output></label><label>density <input id="art-density" type="range" min=".4" max="2.5" step=".1" value="1.5"></label></div><div class="row"><label>normals <input id="art-normal" type="range" min="0" max="8" step=".25" value="2"></label><select id="art-palette"><option value="original">original palette</option><option value="moonlit">moonlit</option><option value="grayscale">grayscale</option></select></div><canvas id="import-preview" width="560" height="230"></canvas><div class="row"><button id="art-preview">update preview</button><button id="art-add" disabled>add to palette</button><span id="art-message" class="subtle">Choose a transparent PNG to begin.</span></div></dialog>
- <dialog id="help-dialog"><header><h2>Welcome to Glyph Valley</h2><button id="help-close">close</button></header><div class="instructions">A small world made of symbols, light and moving grass.<hr class="intro-divider"><kbd>WASD</kbd> walk or ride · <kbd>Shift</kbd> run<br><kbd>E</kbd> mount / dismount · <kbd>T</kbd> torch<br><kbd>Wheel</kbd> zoom · <kbd>M</kbd> world map<br><kbd>F2</kbd> scene editor · <kbd>F3</kbd> video references<hr class="intro-divider">In the editor, paint vegetation or place glyph assets. Import your own transparent PNG artwork and convert it into symbols. Save locally, or download a self-contained world file.<br><br>All graphics are rendered live. The original video frames appear only in reference mode.</div></dialog>
+ <dialog id="help-dialog"><header><h2>Welcome to Glyph Valley</h2><button id="help-close">close</button></header><div class="instructions">A small world made of symbols, light and moving grass.<hr class="intro-divider"><kbd>WASD</kbd> walk or steer relative to the camera · <kbd>Shift</kbd> run<br><kbd>E</kbd> mount / dismount · <kbd>T</kbd> torch<br><kbd>Wheel</kbd> zoom · <kbd>V</kbd> switch camera · <kbd>M</kbd> world map<br><kbd>F2</kbd> scene editor · <kbd>F3</kbd> video references<hr class="intro-divider">Press V to switch between the trailing camera and classic overhead play. F2 opens the overhead editor and returns you to your chosen camera.<label><input id="focus-toggle" type="checkbox" checked> Miniature focus · soften the edges in play</label> Paint vegetation or place glyph assets. Import your own transparent PNG artwork and convert it into symbols. Save locally, or download a self-contained world file.<br><br>All graphics are rendered live. The original video frames appear only in reference mode.</div></dialog>
  <input id="world-file" class="file-hidden" type="file" accept="application/json,.json"><div id="toast" role="status"></div><div id="loader"><div class="rune">♧</div><h1>GLYPH VALLEY</h1><p id="loading-message">Preparing a world of symbols…</p><small>an interactive study in light, letters and landscape</small></div>`;
 let world=createWorld();const engine=new ValleyRenderer($<HTMLCanvasElement>('scene'),world),map=new WorldMap(),history=new History<WorldDocument>();let editor=false,tool:Tool='select',selected:string|null=null,dirty=false,ready=false,keys=new Set<string>(),pointer:T.Vector3|null=null,dragBefore:WorldDocument|null=null,stroke:Stroke|null=null,dragProp=false,mapDrag:{x:number;y:number;pan:number[]}|null=null;
+const appearanceKey = 'glyph-valley.appearance';
+try {
+  const saved = JSON.parse(localStorage.getItem(appearanceKey) ?? '{}');
+  if (saved?.camera === 'overhead') engine.setView('play', 'overhead');
+  engine.focusEnabled = saved?.focus !== false;
+} catch { /* Use the defaults when browser preferences are unavailable. */ }
+function rememberAppearance() {
+  try { localStorage.setItem(appearanceKey, JSON.stringify({camera: engine.playCamera, focus: engine.focusEnabled})); }
+  catch { /* The selection still applies to this session. */ }
+}
+function syncViewControls() {
+  const button = $<HTMLButtonElement>('view-toggle');
+  const next = engine.playCamera === 'chase' ? 'Overhead' : 'Chase';
+  button.textContent = next + ' · V';
+  button.title = 'Switch to the ' + next.toLowerCase() + ' play camera (V)';
+  button.hidden = editor || !$('comparison').hidden || !$('map-panel').hidden;
+  $<HTMLInputElement>('focus-toggle').checked = engine.focusEnabled;
+}
+function switchPlayCamera() {
+  if (!ready || editor || !$('map-panel').hidden || !$('comparison').hidden) return;
+  engine.setView('play', engine.playCamera === 'chase' ? 'overhead' : 'chase');
+  rememberAppearance();
+  syncViewControls();
+}
+$('view-toggle').onclick = switchPlayCamera;
+$<HTMLInputElement>('focus-toggle').onchange = e => {
+  engine.focusEnabled = (e.currentTarget as HTMLInputElement).checked;
+  rememberAppearance();
+};
 function log(text:string){const line=document.createElement('div');line.textContent=text;$('messages').append(line);while($('messages').children.length>40)$('messages').firstElementChild?.remove();$('messages').scrollTop=$('messages').scrollHeight;}
 let toastTimer=0;function toast(text:string,error=false){$('toast').textContent=text;$('toast').classList.toggle('error',error);$('toast').style.display='block';clearTimeout(toastTimer);toastTimer=window.setTimeout(()=>$('toast').style.display='none',4500);}
 function commit(before:WorldDocument){history.push(before);dirty=true;map.rebuild(world);sync();}
 function replace(next:WorldDocument){world=next;engine.setWorld(world);map.rebuild(world);selected=null;sync();}
-function sync(){const p=world.player;$('ride-status').textContent=p.mounted?'mounted':'on foot';
+function sync(){syncViewControls();const p=world.player;$('ride-status').textContent=p.mounted?'mounted':'on foot';
  const hint=document.querySelector<HTMLElement>('.hint')!;
- hint.textContent=p.mounted?'WASD ride · shift gallop · E dismount · wheel zoom · M map · T torch':'WASD walk · shift run · E mount nearby steed · wheel zoom · M map · T torch';$<HTMLInputElement>('wind').value=String(world.lighting.wind);$<HTMLInputElement>('moon').value=String(world.lighting.moon);$<HTMLInputElement>('haze').value=String(world.lighting.haze);$<HTMLInputElement>('torch-color').value=world.lighting.torchColor;$<HTMLSelectElement>('reflection').value=world.lighting.reflection;
+ hint.textContent=p.mounted?'WASD ride · shift gallop · E dismount · wheel zoom · V view · M map · T torch':'WASD walk · shift run · E mount nearby steed · wheel zoom · V view · M map · T torch';$<HTMLInputElement>('wind').value=String(world.lighting.wind);$<HTMLInputElement>('moon').value=String(world.lighting.moon);$<HTMLInputElement>('haze').value=String(world.lighting.haze);$<HTMLInputElement>('torch-color').value=world.lighting.torchColor;$<HTMLSelectElement>('reflection').value=world.lighting.reflection;
  const prop=world.props.find(p=>p.id===selected);$('selected-info').textContent=prop?`${engine.assets.get(prop.asset)?.name??prop.asset} · ${prop.x.toFixed(1)}, ${prop.z.toFixed(1)}`:'Click an object’s base to select.';if(prop){$<HTMLInputElement>('prop-scale').value=prop.scale.toFixed(2);$<HTMLInputElement>('prop-angle').value=String(Math.round(prop.rotation*180/Math.PI));engine.selection.visible=editor;engine.selection.position.set(prop.x,terrainHeight(prop.x,prop.z)+.05,prop.z);engine.selection.scale.setScalar(prop.scale*.7);}else engine.selection.visible=false;
  $('editor-counts').textContent=`objects: ${world.props.length} · strokes: ${world.strokes.length} · ${dirty?'unsaved':'saved'}`;
  const select=$<HTMLSelectElement>('asset-select');for(const a of world.assets)if(![...select.options].some(o=>o.value===a.id))select.add(new Option(a.name,a.id));
 }
 function setTool(next:Tool){tool=next;document.querySelectorAll<HTMLElement>('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===next));$('river-editor').hidden=next!=='river';if(next==='river')riverInputs();engine.brush.visible=editor&&(next==='grass'||next==='flowers');}
-function toggleEditor(){editor=!editor;$('editor').hidden=!editor;$('status').hidden=editor;engine.follow=!editor;setTool(tool);sync();log(editor?'Developer mode: F2 — exit, ⌘S — save.':'You return to the valley.');}
-function toggleMap(){const open=$('map-panel').hidden;$('map-panel').hidden=!open;keys.clear();if(open)map.draw($('world-map'),world);}
+function showEditor(open: boolean) {
+  if (editor === open) return;
+  endDrag();
+  keys.clear();
+  editor = open;
+  $('editor').hidden = !open;
+  $('status').hidden = open;
+  setTool(tool);
+  sync();
+  log(open ? 'Overhead editor. F2 to return to the novice.' : 'You return to the valley.');
+}
+function toggleEditor() {
+  if (!$('comparison').hidden) compare();
+  showEditor(!editor);
+  engine.setView(editor ? 'editor' : 'play');
+}
+function toggleMap(){const open=$('map-panel').hidden;$('map-panel').hidden=!open;keys.clear();syncViewControls();if(open)map.draw($('world-map'),world);}
 function mount() {
   if (editor) return;
   const outcome = changeMount(world);
   if (outcome === 'far') return toast('Move closer to your steed to mount.');
   if (outcome === 'blocked') return toast('There is no clear space to dismount.');
   if (outcome === 'obstructed') return toast('Clear the space around the steed to mount.');
+  engine.chase.releaseInput();
   log(outcome === 'mounted' ? 'You mount your steed.' : 'You dismount. Your steed waits nearby.');
   dirty = true;
   sync();
@@ -67,10 +113,36 @@ function undo(){const next=history.undo(world);if(next){replace(next);dirty=true
 function redo(){const next=history.redo(world);if(next){replace(next);dirty=true;toast('Redone.');}}
 function remove(){if(!selected)return;const before=structuredClone(world);world.props=world.props.filter(p=>p.id!==selected);selected=null;engine.rebuildProps();commit(before);}
 function duplicate(){const prop=world.props.find(p=>p.id===selected);if(!prop)return;const before=structuredClone(world),copy={...prop,id:crypto.randomUUID(),x:prop.x+1,z:prop.z+1};world.props.push(copy);selected=copy.id;engine.rebuildProps();commit(before);}
-function shot(id:string){const s=shots.find(s=>s.id===id)!;engine.shot(s);engine.frozen=!$('comparison').hidden;$('freeze').textContent=engine.frozen?'resume time':'freeze time';if(editor!==(s.ui==='editor'))toggleEditor();engine.follow=false;$('map-panel').hidden=s.ui!=='map';$<HTMLSelectElement>('ref-select').value=id;$<HTMLImageElement>('reference-image').src=`/references/frame-${s.timestamp}.jpg`;$('reference-caption').textContent=`VIDEO REFERENCE · ${s.name}`;sync();}
-function compare(){const open=$('comparison').hidden;$('comparison').hidden=!open;if(open){shot($<HTMLSelectElement>('ref-select').value);}else{$<HTMLSelectElement>('compare-mode').value='off';applyCompare();engine.frozen=false;engine.follow=!editor;}}
+function shot(id: string) {
+  const preset = shots.find(s => s.id === id);
+  if (!preset) return;
+  showEditor(preset.ui === 'editor');
+  engine.shot(preset);
+  engine.frozen = !$('comparison').hidden;
+  $('freeze').textContent = engine.frozen ? 'resume time' : 'freeze time';
+  $('map-panel').hidden = preset.ui !== 'map';
+  $<HTMLSelectElement>('ref-select').value = id;
+  $<HTMLImageElement>('reference-image').src = `/references/frame-${preset.timestamp}.jpg`;
+  $('reference-caption').textContent = `VIDEO REFERENCE · ${preset.name}`;
+  sync();
+}
+function compare() {
+  const open = $('comparison').hidden;
+  $('comparison').hidden = !open;
+  if (open) {
+    shot($<HTMLSelectElement>('ref-select').value);
+  } else {
+    $<HTMLSelectElement>('compare-mode').value = 'off';
+    applyCompare();
+    engine.frozen = false;
+    engine.setView(editor ? 'editor' : 'play');
+    engine.follow = !editor;
+    keys.clear();
+    syncViewControls();
+  }
+}
 function applyCompare(){const mode=$<HTMLSelectElement>('compare-mode').value;document.body.classList.toggle('side-by-side',mode==='side');$('reference-layer').style.display=mode==='off'?'none':'block';$('reference-layer').style.opacity=mode==='overlay'?$<HTMLInputElement>('ref-opacity').value:'1';requestAnimationFrame(()=>engine.resize());}
-function capture(){engine.renderer.render(engine.scene,engine.camera);const a=document.createElement('a');a.download=`glyph-valley-${$<HTMLSelectElement>('ref-select').value}.png`;a.href=engine.renderer.domElement.toDataURL('image/png');a.click();toast('Scene image downloaded.');}
+function capture(){engine.drawScene();const a=document.createElement('a');a.download=`glyph-valley-${$<HTMLSelectElement>('ref-select').value}.png`;a.href=engine.renderer.domElement.toDataURL('image/png');a.click();toast('Scene image downloaded.');}
 const actions:Record<string,()=>void>={torch,mount,map:toggleMap,editor:toggleEditor,save,compare,help:()=>$<HTMLDialogElement>('help-dialog').showModal(),opening:()=>shot('opening'),pause:()=>{engine.frozen=!engine.frozen;toast(engine.frozen?'Time paused.':'Time resumed.');},capture};
 document.querySelectorAll<HTMLElement>('[data-action]').forEach(b=>b.onclick=()=>actions[b.dataset.action!]());document.querySelectorAll<HTMLElement>('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool as Tool));
 for(const id of ['editor-toggle','editor-close'])$(id).onclick=toggleEditor;for(const id of ['compare-toggle','compare-close'])$(id).onclick=compare;for(const id of ['help-toggle'])$(id).onclick=actions.help;$('help-close').onclick=()=>$<HTMLDialogElement>('help-dialog').close();$('map-close').onclick=toggleMap;
@@ -90,15 +162,20 @@ function inputFocused() {
     !!focus?.matches('input, select, textarea, [contenteditable="true"]') ||
     (focus instanceof HTMLButtonElement && !!focus.closest('#editor, #comparison'));
 }
-window.addEventListener('keydown',e=>{if(e.code==='F2'||e.code==='F3'){e.preventDefault();(e.code==='F2'?toggleEditor:compare)();return;}if((e.metaKey||e.ctrlKey)&&e.code==='KeyS'){e.preventDefault();void save();return;}if(inputFocused())return;if((e.metaKey||e.ctrlKey)&&e.code==='KeyZ'){e.preventDefault();e.shiftKey?redo():undo();return;}if((e.metaKey||e.ctrlKey)&&e.code==='KeyD'){e.preventDefault();duplicate();return;}if(e.repeat)return;keys.add(e.code);if(e.code==='KeyM')toggleMap();if(e.code==='KeyT')torch();if(e.code==='KeyE')mount();if(e.code==='KeyB'&&editor)setTool(tool==='grass'?'select':'grass');if((e.code==='Delete'||e.code==='Backspace')&&editor)remove();if(e.code==='KeyR'&&editor){const p=world.props.find(p=>p.id===selected);if(p){const before=structuredClone(world);p.rotation+=Math.PI/12;engine.rebuildProps();commit(before);}}if(e.code==='Escape'){if(!$('map-panel').hidden)toggleMap();else if(!$('comparison').hidden)compare();else if(editor)setTool('select');}});window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>keys.clear());
-const canvas=$<HTMLCanvasElement>('scene');canvas.onwheel=e=>{e.preventDefault();engine.span=Math.max(6,Math.min(90,engine.span*Math.exp(e.deltaY*.001)));engine.updateCamera();};
+window.addEventListener('keydown',e=>{if(e.code==='F2'||e.code==='F3'){e.preventDefault();(e.code==='F2'?toggleEditor:compare)();return;}if((e.metaKey||e.ctrlKey)&&e.code==='KeyS'){e.preventDefault();void save();return;}if(inputFocused())return;if((e.metaKey||e.ctrlKey)&&e.code==='KeyZ'){e.preventDefault();e.shiftKey?redo():undo();return;}if((e.metaKey||e.ctrlKey)&&e.code==='KeyD'){e.preventDefault();duplicate();return;}if(e.repeat)return;
+  if (e.code === 'KeyV' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    switchPlayCamera();
+    return;
+  }
+  keys.add(e.code);if(e.code==='KeyM')toggleMap();if(e.code==='KeyT')torch();if(e.code==='KeyE')mount();if(e.code==='KeyB'&&editor)setTool(tool==='grass'?'select':'grass');if((e.code==='Delete'||e.code==='Backspace')&&editor)remove();if(e.code==='KeyR'&&editor){const p=world.props.find(p=>p.id===selected);if(p){const before=structuredClone(world);p.rotation+=Math.PI/12;engine.rebuildProps();commit(before);}}if(e.code==='Escape'){if(!$('map-panel').hidden)toggleMap();else if(!$('comparison').hidden)compare();else if(editor)setTool('select');}});window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>keys.clear());
+const canvas=$<HTMLCanvasElement>('scene');canvas.onwheel=e=>{e.preventDefault();engine.zoomBy(e.deltaY);};
 function snapped(p:T.Vector3):V2{return $<HTMLInputElement>('grid-snap').checked?[Math.round(p.x*2)/2,Math.round(p.z*2)/2]:[p.x,p.z];}
 canvas.onpointerdown=e=>{(document.activeElement as HTMLElement)?.blur();if(!editor||e.button!==0)return;pointer=engine.screenToWorld(e.clientX,e.clientY);if(!pointer)return;canvas.setPointerCapture(e.pointerId);const [x,z]=snapped(pointer);dragBefore=structuredClone(world);
  if(tool==='grass'||tool==='flowers'){stroke={id:crypto.randomUUID(),kind:tool,mode:$<HTMLSelectElement>('brush-mode').value as Stroke['mode'],points:[[x,z]],radius:Number($<HTMLInputElement>('brush-size').value),density:Number($<HTMLInputElement>('brush-density').value),color:$<HTMLInputElement>('brush-color').value,softness:Number($<HTMLInputElement>('brush-soft').value),seed:world.seed+world.strokes.length*31};world.strokes.push(stroke);engine.invalidateChunks(affectedChunks(stroke));}
  else if(tool==='place'){const p={id:crypto.randomUUID(),asset:$<HTMLSelectElement>('asset-select').value,x,z,rotation:0,scale:1};world.props.push(p);selected=p.id;engine.rebuildProps();commit(dragBefore);dragBefore=null;}
  else if(tool==='select'){let best=Infinity;selected=null;for(const p of world.props){const d=Math.hypot(x-p.x,z-p.z);if(d<1.5*p.scale&&d<best){best=d;selected=p.id;}}dragProp=!!selected;sync();}
 };
-canvas.onpointermove=e=>{pointer=engine.screenToWorld(e.clientX,e.clientY);if(!pointer)return;const [x,z]=snapped(pointer);engine.brush.position.set(x,terrainHeight(x,z)+.05,z);engine.brush.scale.setScalar(Number($<HTMLInputElement>('brush-size').value));if(stroke){const last=stroke.points.at(-1)!;if(Math.hypot(last[0]-x,last[1]-z)>.35){stroke.points.push([x,z]);engine.invalidateChunks(affectedChunks({...stroke,points:[last,[x,z]]}));}}if(dragProp&&selected){const p=world.props.find(p=>p.id===selected)!;p.x=x;p.z=z;engine.rebuildProps();sync();}};
+canvas.onpointermove=e=>{if(!editor)return;pointer=engine.screenToWorld(e.clientX,e.clientY);if(!pointer)return;const [x,z]=snapped(pointer);engine.brush.position.set(x,terrainHeight(x,z)+.05,z);engine.brush.scale.setScalar(Number($<HTMLInputElement>('brush-size').value));if(stroke){const last=stroke.points.at(-1)!;if(Math.hypot(last[0]-x,last[1]-z)>.35){stroke.points.push([x,z]);engine.invalidateChunks(affectedChunks({...stroke,points:[last,[x,z]]}));}}if(dragProp&&selected){const p=world.props.find(p=>p.id===selected)!;p.x=x;p.z=z;engine.rebuildProps();sync();}};
 function endDrag(){if(dragBefore&&(stroke||dragProp))commit(dragBefore);dragBefore=null;stroke=null;dragProp=false;}canvas.onpointerup=endDrag;canvas.onpointercancel=endDrag;canvas.onpointerleave=()=>{if(!stroke)engine.brush.visible=false;};canvas.onpointerenter=()=>engine.brush.visible=editor&&(tool==='grass'||tool==='flowers');
 const mapCanvas=$<HTMLCanvasElement>('world-map');mapCanvas.onwheel=e=>{e.preventDefault();map.zoom=Math.max(.7,Math.min(7,map.zoom*Math.exp(-e.deltaY*.001)));};mapCanvas.onpointerdown=e=>{mapDrag={x:e.clientX,y:e.clientY,pan:[...map.pan]};mapCanvas.setPointerCapture(e.pointerId);};mapCanvas.onpointermove=e=>{if(mapDrag)map.pan=[mapDrag.pan[0]+e.clientX-mapDrag.x,mapDrag.pan[1]+e.clientY-mapDrag.y];};mapCanvas.onpointerup=()=>mapDrag=null;mapCanvas.ondblclick=()=>{map.pan=[0,0];map.zoom=1;};
 let importAsset:GlyphAsset|null=null,importSequence=0;
@@ -115,9 +192,14 @@ function updateMountPrompt() {
     !$('map-panel').hidden || !$('comparison').hidden;
   if (mountPrompt.hidden) return;
   horseScreen.set(p.horse[0], terrainHeight(...p.horse) + 2.15, p.horse[1]).project(engine.camera);
+  if (horseScreen.z < -1 || horseScreen.z > 1 || Math.abs(horseScreen.x) > .97 || Math.abs(horseScreen.y) > .96) {
+    mountPrompt.hidden = true;
+    return;
+  }
   mountPrompt.style.left = (50 + 50 * horseScreen.x) + '%';
   mountPrompt.style.top = (50 - 50 * horseScreen.y) + '%';
 }
+const moveDirection = new T.Vector2();
 let previous = performance.now(), mapClock = 0;
 function frame(now: number) {
   requestAnimationFrame(frame);
@@ -132,6 +214,11 @@ function frame(now: number) {
     const length = Math.hypot(dx, dz);
     if (length) {
       dx /= length; dz /= length;
+      if (engine.view === 'reference' && $('comparison').hidden) engine.setView('play');
+      if (engine.chasing) {
+        engine.chase.movement(dx, dz, moveDirection);
+        dx = moveDirection.x; dz = moveDirection.y;
+      }
       if (editor) {
         const speed = fast ? 30 : 12;
         engine.follow = false;
@@ -144,7 +231,7 @@ function frame(now: number) {
         turnBank = turn.bank;
         engine.follow = true;
       } else {
-        const p = world.player, oldX = p.x, oldZ = p.z, speed = fast ? 4.3 : 1.75;
+        const p = world.player, oldX = p.x, oldZ = p.z, speed = fast ? 4.3 : MONK_WALK_SPEED;
         const nx = p.x + dx * speed * dt, nz = p.z + dz * speed * dt;
         if (canStand(nx, p.z, world, .3)) p.x = nx;
         if (canStand(p.x, nz, world, .3)) p.z = nz;
@@ -153,7 +240,11 @@ function frame(now: number) {
         moving = p.x !== oldX || p.z !== oldZ;
         engine.follow = true;
       }
+    } else {
+      engine.chase.releaseInput();
     }
+  } else {
+    engine.chase.releaseInput();
   }
   engine.render(dt, moving, fast, turnBank);
   updateMountPrompt();mapClock+=dt;if(mapClock>.15){mapClock=0;map.draw($('minimap'),world,true);if(!$('map-panel').hidden)map.draw($('world-map'),world);$('coordinates').textContent=`X: ${world.player.x.toFixed(0)} Y: ${world.player.z.toFixed(0)}`;const s=engine.stats();$('performance').dataset.stats=JSON.stringify(s);$('performance').dataset.player=JSON.stringify(world.player);$('editor-counts').dataset.world=JSON.stringify({props:world.props.length,strokes:world.strokes.length,assets:world.assets.length,history:history.size});$('performance').textContent=`FPS ${(1000/s.median||0).toFixed(0)} · ${s.median.toFixed(1)} ms · ${(s.visibleBlades/1000).toFixed(0)}k blades · ${s.drawCalls} draws`;}}

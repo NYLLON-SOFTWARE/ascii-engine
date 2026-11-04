@@ -2,6 +2,7 @@ import * as T from 'three';
 import type { WorldDocument } from './types';
 import { GLYPHS, terrainHeight } from './world';
 import fragmentShader from './stream.frag.glsl?raw';
+import { vista } from './shaders';
 
 // Keep existing scenery and saved asset indices intact.
 export const atlasGlyphs = GLYPHS + "'~()";
@@ -91,7 +92,7 @@ export function createStream(river: WorldDocument['river'], atlas: T.Texture, li
   const { geometry, length, halfWidth, skirt } = streamRibbon(river);
   const material = new T.ShaderMaterial({
     name: 'Trickling stream',
-    vertexShader, fragmentShader,
+    vertexShader, fragmentShader: fragmentShader.replace('#include <valley_vista>', vista),
     uniforms: {
       ...lighting,
       uAtlas: { value: atlas },

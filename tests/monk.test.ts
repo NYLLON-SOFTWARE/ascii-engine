@@ -19,6 +19,34 @@ function pose(monk: NoviceMonk) {
 }
 
 describe('novice pose lifecycle', () => {
+  it('shifts weight and turns the shoulders while the planted sandals hold their ground at different frame rates', () => {
+    for (const hz of [30, 120]) {
+      const monk = new NoviceMonk(82173), dt = 1 / hz;
+      // Establish a straight walk on level ground at gameplay speed.
+      const feet = ['Monk left foot', 'Monk right foot'].map(name => monk.root.getObjectByName(name)!);
+      const last = [new T.Vector3(), new T.Vector3()];
+      const current = new T.Vector3();
+      let plants = 0, maxSlip = 0, minX = 0, maxX = 0, minTurn = 0, maxTurn = 0;
+      for (let frame = 1; frame <= hz * 6; frame++) {
+        monk.update(dt, 'walk');
+        monk.root.position.z = frame * dt * 1.75;
+        minX = Math.min(minX, monk.hips.position.x); maxX = Math.max(maxX, monk.hips.position.x);
+        minTurn = Math.min(minTurn, monk.chest.rotation.y); maxTurn = Math.max(maxTurn, monk.chest.rotation.y);
+        feet.forEach((foot, i) => {
+          foot.getWorldPosition(current);
+          if (frame * dt > .25 && Math.abs(current.y - .06) < 1e-9 && Math.abs(last[i].y - .06) < 1e-9) {
+            maxSlip = Math.max(maxSlip, current.distanceTo(last[i])); plants++;
+          }
+          last[i].copy(current);
+        });
+      }
+      expect(plants).toBeGreaterThan(hz * 4);
+      expect(maxSlip).toBeLessThan(1e-8);
+      expect(maxX - minX).toBeGreaterThan(.04);
+      expect(maxTurn - minTurn).toBeGreaterThan(.15);
+    }
+  });
+
   it('freezes a walking pose without snapping its limbs or cloth to idle', () => {
     const monk = new NoviceMonk();
     const idle = pose(monk);

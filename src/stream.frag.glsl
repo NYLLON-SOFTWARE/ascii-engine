@@ -4,6 +4,7 @@ uniform sampler2D uAtlas;
 uniform float uMarks[10];
 uniform float uTime, uHalfWidth, uLength, uShore, uMoon, uTorch, uReflection;
 uniform vec3 uPlayer, uTorchColor;
+#include <valley_vista>
 
 float hash(vec2 p) {
   vec3 q = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
@@ -86,5 +87,5 @@ void main() {
   color += ink * silver * (0.47 + 0.68 * uMoon + 0.35 * glint * uReflection);
   float warmth = pow(max(0.0, 1.0 - distance(p, uPlayer.xz) / 6.0), 2.0) * uTorch;
   color += uTorchColor * warmth * (0.016 + ink * 0.25);
-  gl_FragColor = vec4(color, wet);
+  gl_FragColor = vec4(mix(color, uDusk, distanceMist(p)), wet);
 }

@@ -1,9 +1,49 @@
 import {describe,it,expect} from 'vitest';
 import {createWorld,generateChunk,affectedChunks,History,validateWorld,canStand,findDismount,strokeWeight} from '../src/world';
 import {convertPixels} from '../src/converter';
-import type {Stroke} from '../src/types';
+import {GrassForm, type Stroke} from '../src/types';
 function brush(overrides:Partial<Stroke>={}):Stroke{return {id:'test-stroke',kind:'grass',mode:'paint',points:[[0,0]],radius:3,density:60,color:'#667755',softness:.7,seed:42,...overrides};}
 describe('vegetation',()=>{
+ it('grows several stem forms at seeded roots inside their own chunks', () => {
+   const world = createWorld(), other = {...world, seed: world.seed + 77};
+   const forms = new Set<number>();
+   let tallestHead = 0, shortestGrass = Infinity;
+   for (const [cx, cz] of [[-1,-1], [0,0], [3,3]]) {
+     const blades = generateChunk(cx, cz, world);
+     const changed = generateChunk(cx, cz, other);
+     expect(Array.from(blades.slice(0, 2))).not.toEqual(Array.from(changed.slice(0, 2)));
+     for (let i = 0; i < blades.length; i += 9) {
+       if (Math.floor(blades[i] / 16) !== cx || Math.floor(blades[i+1] / 16) !== cz) throw Error('Root crossed its chunk boundary');
+       const form = blades[i+8], height = blades[i+2];
+       forms.add(form);
+       if (form === GrassForm.seedHead) tallestHead = Math.max(tallestHead, height);
+       if (form === GrassForm.blade) shortestGrass = Math.min(shortestGrass, height);
+     }
+   }
+   expect(forms).toEqual(new Set(Object.values(GrassForm)));
+   expect(tallestHead).toBeGreaterThan(shortestGrass * 3);
+ });
+ it('paints and erases blossoms without moving roots or mistaking seed heads for flowers', () => {
+   const world = createWorld(), before = generateChunk(3,3,world);
+   const stroke = brush({kind:'flowers', points:[[56,56]], radius:14, softness:0, density:100});
+   world.strokes.push(stroke);
+   const painted = generateChunk(3,3,world);
+   world.strokes.push({...stroke, id:'erase-flowers', mode:'erase'});
+   const erased = generateChunk(3,3,world);
+   expect(erased.length).toBe(before.length);
+   let added = 0, seedHeads = 0, blossomsLeft = 0, moved = false;
+   for (let i=0; i<before.length; i+=9) {
+     if (painted[i] !== before[i] || painted[i+1] !== before[i+1] ||
+         erased[i] !== before[i] || erased[i+1] !== before[i+1]) moved = true;
+     if (painted[i+8] === GrassForm.flower && before[i+8] !== GrassForm.flower) added++;
+     if (erased[i+8] === GrassForm.flower) blossomsLeft++;
+     if (erased[i+8] === GrassForm.seedHead) seedHeads++;
+   }
+   expect(moved).toBe(false);
+   expect(added).toBeGreaterThan(0);
+   expect(blossomsLeft).toBe(0);
+   expect(seedHeads).toBeGreaterThan(0);
+ });
  it('reproduces every blade from the same authoring data',()=>{const w=createWorld();expect(generateChunk(1,0,w)).toEqual(generateChunk(1,0,structuredClone(w)));});
  it('does not duplicate blades across neighboring chunk boundaries',()=>{const w=createWorld(),a=generateChunk(1,0,w),b=generateChunk(2,0,w),seen=new Set<string>();for(let i=0;i<a.length;i+=9)seen.add(`${a[i]},${a[i+1]}`);for(let i=0;i<b.length;i+=9)expect(seen.has(`${b[i]},${b[i+1]}`)).toBe(false);});
  it('erases inside a brush and leaves an unrelated chunk unchanged',()=>{const w=createWorld(),before=generateChunk(3,3,w);w.strokes.push(brush({mode:'erase',points:[[8,8]],radius:15,softness:0}));const erased=generateChunk(0,0,w);expect(erased.length).toBe(0);expect(generateChunk(3,3,w)).toEqual(before);});

@@ -1,4 +1,4 @@
-import type {WorldDocument, GlyphAsset, Stroke, Blade, V2, ReferenceShot} from './types';
+import {GrassForm, type WorldDocument, type Stroke, type V2, type ReferenceShot} from './types';
 export const WORLD_SIZE=256, CHUNK_SIZE=16;
 export const GLYPHS=' .,:;!|/\\-_=+*oO08QbdpqwmMWN#%@&';
 export function hash(x:number,z:number,seed:number){let h=Math.imul(x^seed,374761393)+Math.imul(z,668265263);h=Math.imul(h^(h>>>13),1274126177);return ((h^(h>>>16))>>>0)/4294967296;}
@@ -40,27 +40,86 @@ export function grassChunks(x: number, z: number, radius: number, circular: bool
   return result.sort((a, b) => a.distance - b.distance);
 }
 
-export function generateChunk(cx:number,cz:number,w:WorldDocument):Float32Array {
- const out:number[]=[];const step=.10; // globally indexed lattice: chunk edges cannot duplicate blades
- const minX=Math.ceil(cx*16/step),maxX=Math.ceil((cx+1)*16/step),minZ=Math.ceil(cz*16/step),maxZ=Math.ceil((cz+1)*16/step);
- const relevant=w.strokes.filter(s=>affectedChunks(s).includes(`${cx},${cz}`));
- for(let iz=minZ;iz<maxZ;iz++)for(let ix=minX;ix<maxX;ix++){
-  const x=ix*step+(hash(ix,iz,w.seed)-.5)*step*.8,z=iz*step+(hash(ix,iz,w.seed+1)-.5)*step*.8;
-  if(x< -128||x>=128||z< -128||z>=128)continue;
-  const bankDistance = riverDistance(x,z,w) - w.river.width * 0.5;
-  const wetMargin = Math.min(1.4, w.river.width * 0.21);
-  if (bankDistance < -wetMargin * 0.42) continue;
-  const pd=Math.abs(x-pathX(z));let density=pd<1.3?.01:pd<2.2?.16:.64;
-  density*=.65+.35*Math.sin(x*.45+Math.sin(z*.28))**2;
-  let col:[number,number,number]=[.25,.34,.29],flower=hash(ix,iz,227)>.991?1:0;
-  for(const s of relevant){let a=strokeWeight(x,z,s);if(!a)continue;if(s.kind==='flowers'){if(s.mode==='erase'){if(hash(ix,iz,s.seed)<a)flower=0;}else if(hash(ix,iz,s.seed)<a*s.density/180)flower=1;continue;}if(s.mode==='erase')density*=1-a;else if(s.mode==='paint')density=density*(1-a)+Math.min(1,s.density/100)*a;if(s.mode!=='erase'){const rgb=colorRGB(s.color);col=col.map((v,i)=>v*(1-a)+rgb[i]*a) as typeof col;}}
-  // Thin the grass through the damp margin and leave a few tufts in the shallows.
-  const dryness = Math.min(1, Math.max(0, (bankDistance / wetMargin + 0.42) / 1.55));
-  density *= dryness * dryness * (3 - 2 * dryness);
-  if(hash(ix,iz,124)>=density)continue;const shade=.6+hash(ix,iz,19)*.7;
-  out.push(x,z,.09+hash(ix,iz,98)*.17,hash(ix,iz,45)*6.283,hash(ix,iz,92)*6.283,col[0]*shade,col[1]*shade,col[2]*shade,flower);
- }
- return new Float32Array(out);
+function smooth(lo: number, hi: number, value: number) {
+  const t = Math.max(0, Math.min(1, (value - lo) / (hi - lo)));
+  return t * t * (3 - 2 * t);
+}
+
+// Sample in world coordinates so a broad patch can continue through any chunk boundary.
+function field(x: number, z: number, seed: number) {
+  const i = Math.floor(x), j = Math.floor(z);
+  const u = smooth(0, 1, x - i), v = smooth(0, 1, z - j);
+  const a = hash(i, j, seed), b = hash(i + 1, j, seed);
+  const c = hash(i, j + 1, seed), d = hash(i + 1, j + 1, seed);
+  return (a + (b - a) * u) * (1 - v) + (c + (d - c) * u) * v;
+}
+
+export function generateChunk(cx: number, cz: number, w: WorldDocument): Float32Array {
+  if (cx < -8 || cx > 7 || cz < -8 || cz > 7) return new Float32Array();
+  const data: number[] = [], seed = w.seed, key = cx + ',' + cz;
+  const strokes = w.strokes.filter(s => affectedChunks(s).includes(key))
+    .map(stroke => ({stroke, ink: colorRGB(stroke.color)}));
+  const wetMargin = Math.min(1.4, w.river.width * .21);
+  // Each half-metre cell owns 25 jittered candidates. Some gather around a
+  // shared crown, others grow in the gaps. Both remain inside their owning cell.
+  for (let tz = cz * 32; tz < (cz + 1) * 32; tz++) for (let tx = cx * 32; tx < (cx + 1) * 32; tx++) {
+    const crownX = (tx + .06 + .88 * hash(tx, tz, seed + 41)) * .5;
+    const crownZ = (tz + .06 + .88 * hash(tx, tz, seed + 42)) * .5;
+    const meadow = field(crownX * .24 + crownZ * .07, crownZ * .22 - crownX * .08, seed + 43);
+    const dryness = field(crownX * .15 - crownZ * .08, crownZ * .18 + crownX * .04, seed + 44);
+    const lush = smooth(.22, .78, meadow), vigour = hash(tx, tz, seed + 45);
+    const densityAtCrown = .18 + .48 * lush + .22 * vigour;
+    const lay = 6.283 * field(crownX * .20, crownZ * .20, seed + 46) + (vigour - .5) * 1.4;
+    const leanX = .24 * Math.cos(lay), leanZ = .24 * Math.sin(lay);
+    const gather = .19 + .56 * vigour * vigour;
+    const flowers = .0006 + .019 * smooth(.58, .85, meadow) * hash(tx, tz, seed + 47);
+    const seedPatch = dryness > .40 && hash(tx, tz, seed + 48) > .66;
+    for (let iz = tz * 5; iz < tz * 5 + 5; iz++) for (let ix = tx * 5; ix < tx * 5 + 5; ix++) {
+      const looseX = (ix + .03 + .94 * hash(ix, iz, seed)) * .10;
+      const looseZ = (iz + .03 + .94 * hash(ix, iz, seed + 1)) * .10;
+      const clustered = hash(ix, iz, seed + 2) < .46 + .29 * vigour;
+      const x = clustered ? looseX + (crownX - looseX) * gather : looseX;
+      const z = clustered ? looseZ + (crownZ - looseZ) * gather : looseZ;
+      const bank = riverDistance(x, z, w) - w.river.width * .5;
+      if (bank < -wetMargin * .42) continue;
+      const track = smooth(1.05, 2.45, Math.abs(x - pathX(z)));
+      let density = .008 + (densityAtCrown - .008) * track;
+      const damp = 1 - smooth(.2, 4, bank);
+      const straw = Math.max(0, Math.min(1, dryness + (vigour - .5) * .16 - damp * .37));
+      let red = .155 + .16 * straw, green = .29 + .070 * straw, blue = .28 - .050 * straw;
+      let bloom = hash(ix, iz, seed + 3) < flowers;
+      for (const {stroke, ink} of strokes) {
+        const weight = strokeWeight(x, z, stroke);
+        if (!weight) continue;
+        if (stroke.kind === 'flowers') {
+          const chance = hash(ix, iz, stroke.seed);
+          if (stroke.mode === 'erase') { if (chance < weight) bloom = false; }
+          else if (chance < weight * stroke.density / 180) bloom = true;
+        } else if (stroke.mode === 'erase') {
+          density *= 1 - weight;
+        } else {
+          if (stroke.mode === 'paint') density += (Math.min(1, stroke.density / 100) - density) * weight;
+          red += (ink[0] - red) * weight; green += (ink[1] - green) * weight; blue += (ink[2] - blue) * weight;
+        }
+      }
+      density *= smooth(-wetMargin * .42, wetMargin * 1.13, bank);
+      if (hash(ix, iz, seed + 4) >= density) continue;
+      const trait = hash(ix, iz, seed + 5), size = hash(ix, iz, seed + 6);
+      const seedHead = seedPatch && trait < .095;
+      const broad = trait > .98 - .28 * lush - .35 * damp;
+      const form = bloom ? GrassForm.flower : seedHead ? GrassForm.seedHead : broad ? GrassForm.ribbon : GrassForm.blade;
+      let height = (.080 + .12 * size + .065 * lush) * (.74 + .61 * vigour);
+      if (!clustered) height *= .76 + .20 * size;
+      if (form === GrassForm.seedHead) height = .28 + .19 * size + .055 * vigour;
+      if (form === GrassForm.ribbon) height += .055 + .09 * damp;
+      if (bloom) height = .18 + .18 * size;
+      const fan = clustered ? Math.atan2(4 * (looseZ - crownZ) + leanZ, 4 * (looseX - crownX) + leanX) : lay;
+      const angle = fan + (hash(ix, iz, seed + 7) - .5) * (clustered ? 1.1 : 3.8);
+      const shade = .60 + .21 * meadow + .23 * vigour + .24 * hash(ix, iz, seed + 8);
+      data.push(x, z, height, angle, hash(ix, iz, seed + 9) * 6.283, red * shade, green * shade, blue * shade, form);
+    }
+  }
+  return new Float32Array(data);
 }
 export function affectedChunks(s:Stroke){const keys=new Set<string>();for(let i=0;i<s.points.length;i++){const a=s.points[i],b=s.points[Math.max(0,i-1)];for(let z=Math.floor((Math.min(a[1],b[1])-s.radius)/16);z<=Math.floor((Math.max(a[1],b[1])+s.radius)/16);z++)for(let x=Math.floor((Math.min(a[0],b[0])-s.radius)/16);x<=Math.floor((Math.max(a[0],b[0])+s.radius)/16);x++)keys.add(`${x},${z}`);}return [...keys];}
 export function canStand(x:number,z:number,w:WorldDocument,radius=.35){if(Math.abs(x)>126||Math.abs(z)>126||riverDistance(x,z,w)<w.river.width*.5+radius)return false;for(const p of w.props){const asset=w.assets.find(a=>a.id===p.asset);const r=(asset?.footprint??(p.asset==='tree'?.3:p.asset==='rock'?.55:.9))*p.scale;if(Math.hypot(x-p.x,z-p.z)<r+radius)return false;}return true;}

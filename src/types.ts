@@ -1,4 +1,6 @@
 export type V2 = [number, number];
+/** Last value in each nine-float vegetation instance. */
+export const GrassForm = { blade: 0, flower: 1, ribbon: 2, seedHead: 3 } as const;
 export interface GlyphAsset { id:string; name:string; source:string; normalSource?:string; width:number; height:number; glyphs:number[]; colors:number[]; alpha:number[]; normals:number[]; pivot:V2; footprint:number; worldHeight:number; }
 export interface Prop { id:string; asset:string; x:number; z:number; rotation:number; scale:number; }
 export interface Stroke { id:string; kind:'grass'|'flowers'; mode:'paint'|'erase'|'restyle'; points:V2[]; radius:number; density:number; color:string; softness:number; seed:number; }

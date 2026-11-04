@@ -167,19 +167,20 @@
   "animations": [
     {
       "file": "behind-the-monk.webp",
-      "description": "Default play camera following the novice on foot and horseback, F2 overhead editing, and dismounting.",
+      "description": "Gusts through the meadow, mounting and galloping, V for overhead play, F2 for editing, and the return to chase view.",
       "captured": "2026-11-04",
       "sourceViewport": [1280, 800],
       "size": [800, 500],
-      "frames": 127,
+      "frames": 152,
       "fps": 16,
-      "durationMs": 7937,
-      "bytes": 6035676,
+      "durationMs": 9499,
+      "bytes": 3814272,
       "settings": {
         "seed": 82173,
         "start": [0, 3],
-        "input": "WASD, Shift, E and F2",
-        "camera": "default play and editor views"
+        "input": "WASD, Shift, E, V, wheel and F2",
+        "camera": "chase, overhead play and editor",
+        "miniatureFocus": true
       }
     },
     {
@@ -192,12 +193,13 @@
       "frames": 110,
       "fps": 16,
       "durationMs": 6870,
-      "bytes": 9526553,
+      "bytes": 8886678,
       "settings": {
         "seed": 82173,
         "routeStart": [13.341520573090813, 34],
         "trimStartFrames": 8,
         "camera": "in-game chase camera at closest wheel zoom",
+        "miniatureFocus": true,
         "mounted": false,
         "wind": 0,
         "input": "WASD and Shift"

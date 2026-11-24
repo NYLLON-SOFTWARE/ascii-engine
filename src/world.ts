@@ -11,6 +11,12 @@ export function riverPointAtZ(z:number,w:WorldDocument):V2|null{for(let i=1;i<w.
 export function pathRiverCrossing(w:WorldDocument){let best={z:0,pathX:0,riverX:0,score:Infinity};for(let z=-10;z<=4;z+=.05){const px=pathX(z),d=riverDistance(px,z,w),score=d+Math.max(0,Math.abs(z+2)-6)*4;const rp=riverPointAtZ(z,w);if(!rp||score>=best.score)continue;best={z,pathX:px,riverX:rp[0],score};}return best;}
 export function createBridgeForWorld(w:WorldDocument):Bridge{const cross=pathRiverCrossing(w);const west=cross.riverX-w.river.width*.55,east=cross.pathX;return {center:[(west+east)*.5,cross.z],halfLength:Math.max(1,(east-west)*.5),halfWidth:2.1};}
 export function onBridge(x:number,z:number,w:WorldDocument,margin=0){const b=w.bridge;if(!b)return false;const [cx,cz]=b.center;return Math.abs(x-cx)<=b.halfLength+margin&&Math.abs(z-cz)<=b.halfWidth+margin;}
+export const BRIDGE_PROP_ASSETS=new Set(['plank','post','rail']);
+export function isBridgePropAsset(asset:string){return BRIDGE_PROP_ASSETS.has(asset);}
+export function syncBridgeProps(w:WorldDocument){w.props=w.props.filter(p=>!isBridgePropAsset(p.asset));const b=w.bridge,[cx,cz]=b.center,halfL=b.halfLength,halfW=b.halfWidth;let n=w.props.length;const push=(asset:string,x:number,z:number,scale=1,rotation=0)=>w.props.push({id:`bridge-${asset}-${n++}`,asset,x,z,rotation,scale});
+ for(let x=cx-halfL+.55;x<cx+halfL-.4;x+=1.05)for(const row of [-.35,0,.35]){const z=cz+row*halfW;push('plank',x,z,.55+hash(Math.floor(x*10),Math.floor(z*10),w.seed)*.12,(hash(x,z,w.seed+11)-.5)*.1);}
+ for(let x=cx-halfL+.35;x<=cx+halfL-.35;x+=2.8){push('post',x,cz-halfW*.92,.85,0);push('post',x,cz+halfW*.92,.85,0);}
+ for(let x=cx-halfL+.5;x<cx+halfL-.3;x+=1.4){push('rail',x,cz-halfW*.78,.45,0);push('rail',x,cz+halfW*.78,.45,0);}}
 export function terrainHeight(x:number,z:number){return Math.sin(x*.06)*Math.cos(z*.045)*.28;}
 export const shots:ReferenceShot[]=[
  {id:'opening',name:'00:00 · Ruins at dusk',timestamp:0,target:[0,-2],span:38,player:[0,3],angle:.2,mounted:true,time:0,ui:'play'},
@@ -26,11 +32,13 @@ export function createWorld():WorldDocument {
  for(let i=0;i<150;i++){let x=rand()*120-48,z=rand()*160-80;add('rock',x,z,.4+rand()*.9);}
  [[-3,-4],[0,-6],[3,-5],[4,-2]].forEach(([x,z],i)=>add('ruin',x,z,i===1?1.3:.9));
  add('tree',8,-8,1.1);add('tree',12,3,.9);add('rock',2.4,1,.9);add('rock',-3,4,.8);add('tree',4,-3,1);add('tree',-5,-12,1.1);add('rock',-2,-1,.7);
- const river={points:[[-55,-128],[-36,-80],[-24,-50],[-18,-25],[-15,0],[-28,35],[-22,65],[-39,100],[-46,128]],width:8.5};
+ const river={points:[[-55,-128],[-36,-80],[-24,-50],[-18,-25],[-15,0],[-28,35],[-22,65],[-39,100],[-46,128]] as V2[],width:8.5};
  const lighting={moon:.38,wind:.5,haze:.06,torchColor:'#e5bd72',reflection:'night sky' as const};
  const player={x:0,z:3,angle:.2,mounted:false,torch:true,horse:[1.8,3] as V2,horseAngle:.2};
  const stub:WorldDocument={version:1,name:'',seed:0,size:256,props:[],strokes:[],river,bridge:{center:[0,0],halfLength:1,halfWidth:1},lighting,player,assets:[]};
- return {version:1,name:'Glyph Valley',seed:82173,size:256,props,strokes:[],river,bridge:createBridgeForWorld(stub),lighting,player,assets:[]};
+ const world:WorldDocument={version:1,name:'Glyph Valley',seed:82173,size:256,props,strokes:[],river,bridge:createBridgeForWorld(stub),lighting,player,assets:[]};
+ syncBridgeProps(world);
+ return world;
 }
 export function strokeWeight(x:number,z:number,s:Stroke){let d=Infinity;if(s.points.length===1)d=Math.hypot(x-s.points[0][0],z-s.points[0][1]);else for(let i=1;i<s.points.length;i++)d=Math.min(d,segmentDistance(x,z,s.points[i-1],s.points[i]));if(d>=s.radius)return 0;return Math.min(1,(s.radius-d)/Math.max(.01,s.radius*s.softness));}
 export function colorRGB(hex:string):[number,number,number]{return [parseInt(hex.slice(1,3),16)/255,parseInt(hex.slice(3,5),16)/255,parseInt(hex.slice(5,7),16)/255];}
@@ -58,7 +66,7 @@ export function generateChunk(cx:number,cz:number,w:WorldDocument):Float32Array 
  return new Float32Array(out);
 }
 export function affectedChunks(s:Stroke){const keys=new Set<string>();for(let i=0;i<s.points.length;i++){const a=s.points[i],b=s.points[Math.max(0,i-1)];for(let z=Math.floor((Math.min(a[1],b[1])-s.radius)/16);z<=Math.floor((Math.max(a[1],b[1])+s.radius)/16);z++)for(let x=Math.floor((Math.min(a[0],b[0])-s.radius)/16);x<=Math.floor((Math.max(a[0],b[0])+s.radius)/16);x++)keys.add(`${x},${z}`);}return [...keys];}
-export function canStand(x:number,z:number,w:WorldDocument,radius=.35){if(Math.abs(x)>126||Math.abs(z)>126)return false;const inWater=riverDistance(x,z,w)<w.river.width*.5+radius;if(inWater&&!onBridge(x,z,w,radius))return false;for(const p of w.props){const asset=w.assets.find(a=>a.id===p.asset);if(p.asset==='rock'&&w.bridge&&onBridge(p.x,p.z,w,.35))continue;const r=(asset?.footprint??(p.asset==='tree'?.3:p.asset==='rock'?.55:.9))*p.scale;if(Math.hypot(x-p.x,z-p.z)<r+radius)return false;}return true;}
+export function canStand(x:number,z:number,w:WorldDocument,radius=.35){if(Math.abs(x)>126||Math.abs(z)>126)return false;const inWater=riverDistance(x,z,w)<w.river.width*.5+radius;if(inWater&&!onBridge(x,z,w,radius))return false;for(const p of w.props){const asset=w.assets.find(a=>a.id===p.asset);if((p.asset==='rock'||isBridgePropAsset(p.asset))&&w.bridge&&onBridge(p.x,p.z,w,.35))continue;const r=(asset?.footprint??(p.asset==='tree'?.3:p.asset==='rock'?.55:.9))*p.scale;if(Math.hypot(x-p.x,z-p.z)<r+radius)return false;}return true;}
 export function findDismount(w:WorldDocument):V2|null{for(let i=0;i<12;i++){const a=w.player.angle+Math.PI/2+i*Math.PI/6;const x=w.player.x+Math.sin(a)*1.8,z=w.player.z+Math.cos(a)*1.8;if(canStand(x,z,w))return [x,z];}return null;}
 export function changeMount(world: WorldDocument) {
   const player = world.player;
@@ -97,7 +105,7 @@ export function validateWorld(input:unknown):WorldDocument {
  const bridge=(w as WorldDocument).bridge;
  if(bridge&&(!v2(bridge.center)||![bridge.halfLength,bridge.halfWidth].every(finite)||bridge.halfLength<=0||bridge.halfWidth<=0||bridge.halfLength>80||bridge.halfWidth>8))throw Error('Invalid bridge.');
  if(w.props.length>20000||w.strokes.length>20000||w.assets.length>100)throw Error('World exceeds editor limits.');
- const ids=new Set<string>(['tree','rock','ruin','flowers']);
+ const ids=new Set<string>(['tree','rock','ruin','flowers','plank','post','rail']);
  for(const a of w.assets){if(typeof a.id!=='string'||!Number.isInteger(a.width)||!Number.isInteger(a.height)||a.width<1||a.height<1||a.width>256||a.height>256||typeof a.source!=='string'||!a.source.startsWith('data:image/png;base64,')||!v2(a.pivot)||![a.footprint,a.worldHeight].every(finite))throw Error('Invalid glyph asset.');const n=a.width*a.height;for(const [k,len] of [['glyphs',n],['colors',n*3],['alpha',n],['normals',n*3]] as const)if(!Array.isArray(a[k])||a[k].length!==len||!a[k].every(finite))throw Error('Invalid glyph grid.');ids.add(a.id);}
  for(const p of w.props)if(typeof p.id!=='string'||!ids.has(p.asset)||![p.x,p.z,p.rotation,p.scale].every(finite)||p.scale<=0||p.scale>20)throw Error('Invalid placed object.');
  for(const s of w.strokes)if(!['grass','flowers'].includes(s.kind)||!['paint','erase','restyle'].includes(s.mode)||!Array.isArray(s.points)||!s.points.length||!s.points.every(v2)||![s.radius,s.density,s.softness,s.seed].every(finite)||s.radius<=0||s.radius>40||s.softness<0||s.softness>1||!/^#[\da-f]{6}$/i.test(s.color))throw Error('Invalid paint stroke.');

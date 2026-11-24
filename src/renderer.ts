@@ -1,8 +1,8 @@
 import * as T from 'three';
 import {Jobs,readImage,toDataURL} from './jobs';
 import {Actors} from './actors';
-import type {WorldDocument,GlyphAsset,ReferenceShot} from './types';
-import {terrainHeight,positionForShot} from './world';
+import type {WorldDocument,GlyphAsset,ReferenceShot,V2} from './types';
+import {terrainHeight,positionForShot,createBridgeForWorld,syncBridgeProps} from './world';
 import {atlasGlyphs,createStream} from './stream';
 import {grassVertex,grassFragment,glyphVertex,glyphFragment} from './shaders';
 export class ValleyRenderer {
@@ -28,15 +28,18 @@ export class ValleyRenderer {
    this.water = createStream(this.world.river, this.atlas, this.uniforms);
    this.scene.add(this.water);
  }
- async loadAssets(onProgress:(s:string)=>void){for(const [id,height,width] of [['tree',7,42],['rock',1.6,18],['ruin',3.3,32],['flowers',.5,18]] as const){onProgress(`Converting ${id} artwork into glyphs…`);const source=await toDataURL(`/art/${id}.png`);const data=await readImage(source,width);const asset=await this.jobs.convert({id,name:id,source,...data,density:1.5,normalStrength:2,palette:id==='tree'?'original':'moonlit',worldHeight:height});if(id==='tree')asset.pivot=[.83,.98];this.assets.set(id,asset);console.info('Glyph asset',id,asset.width,asset.height,asset.alpha.filter(a=>a>.15).length);}for(const a of this.world.assets)this.assets.set(a.id,a);this.rebuildProps();onProgress('Preparing the novice and loading the horse…');await this.actors.load();await this.updateChunks(true);}
+ async loadAssets(onProgress:(s:string)=>void){type Builtin=[string,number,number,'original'|'moonlit',V2?];const builtins:Builtin[]=[['tree',7,42,'original',[.83,.98]],['rock',1.6,18,'moonlit'],['ruin',3.3,32,'moonlit'],['flowers',.5,18,'moonlit'],['plank',.22,28,'moonlit',[.5,.92]],['post',1.75,20,'moonlit',[.5,1]],['rail',.3,22,'moonlit',[.5,.85]]];for(const [id,height,width,palette,pivot] of builtins){onProgress(`Converting ${id} artwork into glyphs…`);const source=await toDataURL(`/art/${id}.png`);const data=await readImage(source,width);const asset=await this.jobs.convert({id,name:id,source,...data,density:1.5,normalStrength:2,palette,worldHeight:height});if(pivot)asset.pivot=pivot;this.assets.set(id,asset);console.info('Glyph asset',id,asset.width,asset.height,asset.alpha.filter(a=>a>.15).length);}for(const a of this.world.assets)this.assets.set(a.id,a);this.rebuildProps();onProgress('Preparing the novice and loading the horse…');await this.actors.load();await this.updateChunks(true);}
  resize(){const c=this.renderer.domElement;const {width,height}=c.parentElement!.getBoundingClientRect();this.renderer.setSize(width,height,false);this.updateCamera();}
  updateCamera(){const c=this.renderer.domElement,aspect=c.clientWidth/c.clientHeight;this.camera.left=-this.span/2;this.camera.right=this.span/2;this.camera.top=this.span/aspect/2;this.camera.bottom=-this.span/aspect/2;this.camera.near=.1;this.camera.far=400;this.camera.position.set(this.target.x,120*.819152, this.target.y+120*.573576);this.camera.lookAt(this.target.x,0,this.target.y);this.camera.updateProjectionMatrix();this.camera.updateMatrixWorld();}
  shot(s:ReferenceShot){this.target.set(...s.target);this.span=s.span;positionForShot(this.world,s);this.time=s.time;this.actors.resetPose(s.time, s.mounted);this.follow=false;this.updateCamera();this.updateChunks();}
  screenToWorld(clientX:number,clientY:number){const r=this.renderer.domElement.getBoundingClientRect();const v=new T.Vector2((clientX-r.left)/r.width*2-1,-(clientY-r.top)/r.height*2+1),ray=new T.Raycaster();ray.setFromCamera(v,this.camera);const out=new T.Vector3();return ray.ray.intersectPlane(new T.Plane(new T.Vector3(0,1,0),0),out);}
- setWorld(w:WorldDocument){this.world=w;this.actors.resetPose(this.time,w.player.mounted);this.worldEpoch++;this.pending.clear();for(const a of w.assets)this.assets.set(a.id,a);this.updateRiver();this.rebuildProps();}
+ setWorld(w:WorldDocument){this.world=w;this.actors.resetPose(this.time,w.player.mounted);this.worldEpoch++;this.pending.clear();for(const a of w.assets)this.assets.set(a.id,a);this.createWater();this.invalidateChunks();this.rebuildProps();}
  updateRiver() {
    this.createWater();
+   this.world.bridge=createBridgeForWorld(this.world);
+   syncBridgeProps(this.world);
    this.invalidateChunks();
+   this.rebuildProps();
  }
  invalidateChunks(keys?:string[]){const list=keys??[...new Set([...this.chunks.keys(),...this.pending])];for(const key of list){this.generations.set(key,(this.generations.get(key)??0)+1);this.pending.delete(key);const mesh=this.chunks.get(key);if(mesh){this.scene.remove(mesh);mesh.geometry.dispose();this.chunks.delete(key);}}void this.updateChunks();}
  async updateChunks(wait=false){const r=this.span*.65+12,keys=new Set<string>(),promises:Promise<void>[]=[];for(let z=Math.floor((this.target.y-r)/16);z<=Math.floor((this.target.y+r)/16);z++)for(let x=Math.floor((this.target.x-r)/16);x<=Math.floor((this.target.x+r)/16);x++){if(x< -8||x>7||z< -8||z>7)continue;const key=`${x},${z}`;keys.add(key);if(this.chunks.has(key)||this.pending.has(key))continue;this.pending.add(key);const epoch=this.worldEpoch,generation=this.generations.get(key)??0;const p=this.jobs.chunk(x,z,this.world).then(data=>{if(epoch!==this.worldEpoch||generation!==(this.generations.get(key)??0))return;this.pending.delete(key);this.generatedBlades+=data.length/9;const mesh=this.makeGrass(data);this.chunks.set(key,mesh);this.scene.add(mesh);});promises.push(p);}

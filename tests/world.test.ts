@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {createWorld,generateChunk,affectedChunks,History,validateWorld,canStand,findDismount,strokeWeight} from '../src/world';
+import {createWorld,generateChunk,affectedChunks,History,validateWorld,canStand,findDismount,strokeWeight,onBridge,isBridgePropAsset} from '../src/world';
 import {convertPixels} from '../src/converter';
 import type {Stroke} from '../src/types';
 function brush(overrides:Partial<Stroke>={}):Stroke{return {id:'test-stroke',kind:'grass',mode:'paint',points:[[0,0]],radius:3,density:60,color:'#667755',softness:.7,seed:42,...overrides};}
@@ -19,6 +19,8 @@ describe('history and persistence',()=>{
 });
 describe('character collisions',()=>{
  it('blocks river and map boundaries',()=>{const w=createWorld();expect(canStand(-15,0,w)).toBe(false);expect(canStand(129,0,w)).toBe(false);});
+ it('allows crossing the river on the bridge deck',()=>{const w=createWorld();const [cx,cz]=w.bridge.center;expect(onBridge(cx,cz,w)).toBe(true);expect(canStand(cx,cz,w)).toBe(true);expect(canStand(cx,cz,w,.55)).toBe(true);});
+ it('builds glyph bridge props from plank, post and rail assets',()=>{const w=createWorld();const bridgeProps=w.props.filter(p=>isBridgePropAsset(p.asset));expect(bridgeProps.length).toBeGreaterThan(40);expect(new Set(bridgeProps.map(p=>p.asset))).toEqual(new Set(['plank','post','rail']));expect(w.assets).toEqual([]);bridgeProps.forEach(p=>expect(onBridge(p.x,p.z,w,.2)).toBe(true));});
  it('finds a clear dismount position and preserves the source world',()=>{const w=createWorld(),copy=structuredClone(w),p=findDismount(w);expect(p).not.toBeNull();expect(canStand(...p!,w)).toBe(true);expect(w).toEqual(copy);});
  it('reports a blocked dismount when all surrounding space is water',()=>{const w=createWorld();w.player.x=-15;w.player.z=0;w.river.width=20;expect(findDismount(w)).toBeNull();});
 });

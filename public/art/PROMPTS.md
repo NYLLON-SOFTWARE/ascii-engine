@@ -13,5 +13,6 @@ Use case: stylized-concept. Asset type: a single transparent 2-by-2 game scenery
 - `rock.png`: 585×530, weathered gray boulder.
 - `ruin.png`: 536×566, crumbling stone arch.
 - `flowers.png`: 443×571, white wildflowers.
+- `plank.png`, `post.png`, `rail.png`: procedural weathered-wood bridge pieces for the river crossing (moonlit conversion).
 
 Crops preserve the original RGBA data. Original generation and crop rectangles are recorded in `metadata.json`. Assets are intentionally non-ASCII source art for the application’s glyph converter.
